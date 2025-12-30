@@ -38,17 +38,41 @@ export function isValidUrl(url: string): boolean {
 
 /**
  * Normalize URL - thêm https:// nếu thiếu protocol
+ * Đảm bảo URL không bị duplicate
  */
 export function normalizeUrl(url: string): string {
+  if (!url) return url;
+  
   const trimmed = url.trim();
   if (!trimmed) return trimmed;
   
-  // Nếu đã có protocol, trả về nguyên bản
-  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-    return trimmed;
+  // Loại bỏ các khoảng trắng thừa
+  let cleanUrl = trimmed.replace(/\s+/g, "");
+  
+  // Nếu đã có protocol, trả về nguyên bản (đã clean)
+  if (cleanUrl.startsWith("http://") || cleanUrl.startsWith("https://")) {
+    return cleanUrl;
   }
   
-  // Tự động thêm https://
-  return `https://${trimmed}`;
+  // Kiểm tra xem có phải là URL đã bị duplicate không (có 2 lần https://)
+  // Ví dụ: https://example.com/https://example.com
+  const httpsIndex = cleanUrl.indexOf("https://");
+  if (httpsIndex > 0) {
+    // Có https:// ở giữa, lấy phần đầu tiên
+    cleanUrl = cleanUrl.substring(0, httpsIndex);
+  }
+  
+  const httpIndex = cleanUrl.indexOf("http://");
+  if (httpIndex > 0) {
+    // Có http:// ở giữa, lấy phần đầu tiên
+    cleanUrl = cleanUrl.substring(0, httpIndex);
+  }
+  
+  // Tự động thêm https:// nếu chưa có
+  if (!cleanUrl.startsWith("http://") && !cleanUrl.startsWith("https://")) {
+    return `https://${cleanUrl}`;
+  }
+  
+  return cleanUrl;
 }
 

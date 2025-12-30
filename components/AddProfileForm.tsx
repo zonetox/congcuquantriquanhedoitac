@@ -111,17 +111,19 @@ export function AddProfileForm({ currentProfileCount = 0, isPremium: isPremiumPr
     }
 
     // Validate URL format - must have http or https
-    let normalizedUrl = url.trim();
+    // Normalize URL trước để loại bỏ duplicate và đảm bảo có protocol
+    let normalizedUrl = normalizeUrl(url.trim());
+    
+    // Validate sau khi normalize
     if (!isValidUrl(normalizedUrl)) {
-      // Thử normalize URL (thêm https:// nếu thiếu)
-      normalizedUrl = normalizeUrl(normalizedUrl);
-      if (!isValidUrl(normalizedUrl)) {
-        setError("Invalid URL. Please enter a valid URL starting with http:// or https://");
-        toast.error("Invalid URL format. Must start with http:// or https://");
-        setLoading(false);
-        return;
-      }
-      // Cập nhật URL đã normalize
+      setError("Invalid URL. Please enter a valid URL starting with http:// or https://");
+      toast.error("Invalid URL format. Must start with http:// or https://");
+      setLoading(false);
+      return;
+    }
+    
+    // Cập nhật URL đã normalize (nếu khác với input ban đầu)
+    if (normalizedUrl !== url.trim()) {
       setUrl(normalizedUrl);
     }
 
@@ -202,23 +204,21 @@ export function AddProfileForm({ currentProfileCount = 0, isPremium: isPremiumPr
                 onChange={(e) => setUrl(e.target.value)}
                 onPaste={(e) => {
                   // Auto-fill URL from clipboard và normalize
+                  e.preventDefault();
                   const pastedText = e.clipboardData.getData("text").trim();
                   if (pastedText) {
+                    // Normalize URL để loại bỏ duplicate và đảm bảo có protocol
                     const normalized = normalizeUrl(pastedText);
-                    if (isValidUrl(normalized)) {
-                      setUrl(normalized);
-                    } else {
-                      // Nếu không hợp lệ, vẫn set để user có thể sửa
-                      setUrl(pastedText);
-                    }
+                    setUrl(normalized);
                   }
                 }}
                 onBlur={(e) => {
                   // Tự động normalize URL khi blur (rời khỏi input)
                   const currentUrl = e.target.value.trim();
-                  if (currentUrl && !isValidUrl(currentUrl)) {
+                  if (currentUrl) {
                     const normalized = normalizeUrl(currentUrl);
-                    if (isValidUrl(normalized)) {
+                    // Chỉ update nếu normalized khác với current (tránh loop)
+                    if (normalized !== currentUrl) {
                       setUrl(normalized);
                     }
                   }
