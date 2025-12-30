@@ -171,7 +171,7 @@ export function LoginForm() {
             className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
           >
             {isLogin
-              ? "Don't have an account? Sign up now"
+              ? "Don&apos;t have an account? Sign up now"
               : "Already have an account? Sign in"}
           </button>
         </div>

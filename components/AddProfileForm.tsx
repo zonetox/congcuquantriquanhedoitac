@@ -6,24 +6,46 @@ import { Link, Plus, Loader2, Globe } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { getFaviconUrl, getDomainFromUrl, isValidUrl, normalizeUrl } from "@/lib/utils/url";
+import { isPremium } from "@/lib/auth/helpers";
 
 // Giới hạn miễn phí: 5 profiles
 const MAX_PROFILES = 5;
 
 interface AddProfileFormProps {
   currentProfileCount?: number;
+  isPremium?: boolean;
 }
 
-export function AddProfileForm({ currentProfileCount = 0 }: AddProfileFormProps) {
+const CATEGORIES = [
+  { value: "General", label: "General" },
+  { value: "Competitor", label: "Competitor" },
+  { value: "Partner", label: "Partner" },
+  { value: "Customer", label: "Customer" },
+  { value: "Other", label: "Other" },
+] as const;
+
+export function AddProfileForm({ currentProfileCount = 0, isPremium: isPremiumProp = false }: AddProfileFormProps) {
   const router = useRouter();
   const [url, setUrl] = useState("");
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
+  const [category, setCategory] = useState<string>("General");
+  const [isUserPremium, setIsUserPremium] = useState<boolean>(isPremiumProp);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [faviconPreview, setFaviconPreview] = useState<string | null>(null);
   const [domainPreview, setDomainPreview] = useState<string | null>(null);
+  const [faviconError, setFaviconError] = useState(false);
+
+  // Cập nhật premium status khi prop thay đổi
+  useEffect(() => {
+    setIsUserPremium(isPremiumProp);
+    // Nếu không phải premium, set category về General
+    if (!isPremiumProp) {
+      setCategory("General");
+    }
+  }, [isPremiumProp]);
 
   // Auto-detect favicon and suggest title when URL changes
   useEffect(() => {
@@ -69,9 +91,10 @@ export function AddProfileForm({ currentProfileCount = 0 }: AddProfileFormProps)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Kiểm tra giới hạn miễn phí
-    if (currentProfileCount >= MAX_PROFILES) {
+    // Kiểm tra giới hạn miễn phí - Chỉ áp dụng cho free users
+    if (!isUserPremium && currentProfileCount >= MAX_PROFILES) {
       toast.error(`Free limit reached (${MAX_PROFILES} profiles). Please upgrade to Premium for unlimited tracking!`);
+      setLoading(false);
       return;
     }
     
@@ -103,12 +126,25 @@ export function AddProfileForm({ currentProfileCount = 0 }: AddProfileFormProps)
     }
 
     try {
+      // Validate category - Free users chỉ được chọn General
+      const selectedCategory = isUserPremium ? category : "General";
+      // Notes chỉ được lưu nếu user là premium
+      const notesToSave = isUserPremium ? notes.trim() : undefined;
+
       console.log("[AddProfileForm] Submitting profile:", {
         url: normalizedUrl,
         title: title.trim(),
+        category: selectedCategory,
+        notes: notesToSave,
+        isPremium: isUserPremium,
       });
 
-      const result = await addProfile(normalizedUrl, title.trim());
+      const result = await addProfile(
+        normalizedUrl,
+        title.trim(),
+        notesToSave,
+        selectedCategory
+      );
 
       console.log("[AddProfileForm] Server response:", result);
 
@@ -122,6 +158,7 @@ export function AddProfileForm({ currentProfileCount = 0 }: AddProfileFormProps)
         setUrl("");
         setTitle("");
         setNotes("");
+        setCategory(isUserPremium ? category : "General");
         setFaviconPreview(null);
         setDomainPreview(null);
         setFaviconError(false);
@@ -246,24 +283,69 @@ export function AddProfileForm({ currentProfileCount = 0 }: AddProfileFormProps)
             />
           </div>
 
+          {/* Category Select */}
+          <div>
+            <label
+              htmlFor="category"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
+              Category
+              {!isUserPremium && (
+                <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+                  (Free: General only)
+                </span>
+              )}
+            </label>
+            <select
+              id="category"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              disabled={!isUserPremium}
+              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {CATEGORIES.map((cat) => (
+                <option key={cat.value} value={cat.value}>
+                  {cat.label}
+                </option>
+              ))}
+            </select>
+            {!isUserPremium && (
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Upgrade to Premium to unlock all categories
+              </p>
+            )}
+          </div>
+
           {/* Quick Notes Input */}
           <div>
             <label
               htmlFor="notes"
               className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
             >
-              Quick Notes <span className="text-gray-400 text-xs font-normal">(Optional)</span>
+              Quick Notes
+              {isUserPremium ? (
+                <span className="text-gray-400 text-xs font-normal ml-2">(Optional)</span>
+              ) : (
+                <span className="text-gray-400 text-xs font-normal ml-2">(Premium only)</span>
+              )}
             </label>
             <textarea
               id="notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Why are you tracking this competitor? (e.g., Pricing strategy, New features, Market positioning...)"
+              disabled={!isUserPremium}
+              placeholder={
+                isUserPremium
+                  ? "Why are you tracking this competitor? (e.g., Pricing strategy, New features, Market positioning...)"
+                  : "Upgrade to Premium to add notes"
+              }
               rows={3}
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
+              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none disabled:opacity-50 disabled:cursor-not-allowed"
             />
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Add a quick note about why you're tracking this profile
+              {isUserPremium
+                ? "Add a quick note about why you&apos;re tracking this profile"
+                : "Upgrade to Premium to unlock notes feature"}
             </p>
           </div>
 
@@ -275,8 +357,8 @@ export function AddProfileForm({ currentProfileCount = 0 }: AddProfileFormProps)
           )}
 
 
-          {/* Upgrade Message if limit reached */}
-          {currentProfileCount >= MAX_PROFILES && (
+          {/* Upgrade Message if limit reached - Chỉ hiển thị cho free users */}
+          {!isUserPremium && currentProfileCount >= MAX_PROFILES && (
             <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
               <p className="text-sm text-yellow-800 dark:text-yellow-300 font-medium">
                 Free limit reached ({MAX_PROFILES} profiles). Please upgrade to Premium for unlimited tracking!
@@ -285,11 +367,11 @@ export function AddProfileForm({ currentProfileCount = 0 }: AddProfileFormProps)
           )}
 
           {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={loading || currentProfileCount >= MAX_PROFILES}
-            className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
+              <button
+                type="submit"
+                disabled={loading || (!isUserPremium && currentProfileCount >= MAX_PROFILES)}
+                className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
             {loading ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
@@ -303,10 +385,17 @@ export function AddProfileForm({ currentProfileCount = 0 }: AddProfileFormProps)
             )}
           </button>
           
-          {/* Profile Count Info */}
-          <p className="text-xs text-center text-gray-500 dark:text-gray-400">
-            {currentProfileCount} / {MAX_PROFILES} profiles used
-          </p>
+              {/* Profile Count Info */}
+              {!isUserPremium && (
+                <p className="text-xs text-center text-gray-500 dark:text-gray-400">
+                  {currentProfileCount} / {MAX_PROFILES} profiles used
+                </p>
+              )}
+              {isUserPremium && (
+                <p className="text-xs text-center text-yellow-600 dark:text-yellow-400 font-medium">
+                  ✨ Premium: Unlimited profiles
+                </p>
+              )}
         </form>
       </div>
     </div>

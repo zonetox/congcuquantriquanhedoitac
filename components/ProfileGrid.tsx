@@ -10,9 +10,10 @@ import type { Profile } from "@/lib/profiles/types";
 
 interface ProfileGridProps {
   profiles: Profile[];
+  isPremium?: boolean;
 }
 
-export function ProfileGrid({ profiles }: ProfileGridProps) {
+export function ProfileGrid({ profiles, isPremium = false }: ProfileGridProps) {
   const router = useRouter();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +49,7 @@ export function ProfileGrid({ profiles }: ProfileGridProps) {
     return (
       <div className="text-center py-12">
         <p className="text-gray-500 dark:text-gray-400 text-lg">
-          You haven't added any profiles yet. Start tracking your competitors now!
+          You haven&apos;t added any profiles yet. Start tracking your competitors now!
         </p>
       </div>
     );
@@ -69,6 +70,7 @@ export function ProfileGrid({ profiles }: ProfileGridProps) {
             profile={profile}
             onDelete={handleDelete}
             isDeleting={deletingId === profile.id}
+            isPremium={isPremium}
           />
         ))}
       </div>

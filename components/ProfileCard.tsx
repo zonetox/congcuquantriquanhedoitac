@@ -1,7 +1,7 @@
 "use client";
 
 import { getFaviconUrl, getDomainFromUrl } from "@/lib/utils/url";
-import { Trash2, Globe, Radio } from "lucide-react";
+import { Trash2, Globe, Radio, Crown } from "lucide-react";
 import { useState } from "react";
 
 import type { Profile } from "@/lib/profiles/types";
@@ -10,9 +10,10 @@ interface ProfileCardProps {
   profile: Profile;
   onDelete: (profileId: string) => void;
   isDeleting?: boolean;
+  isPremium?: boolean;
 }
 
-export function ProfileCard({ profile, onDelete, isDeleting = false }: ProfileCardProps) {
+export function ProfileCard({ profile, onDelete, isDeleting = false, isPremium = false }: ProfileCardProps) {
   const [faviconError, setFaviconError] = useState(false);
 
   const handleCardClick = (e: React.MouseEvent) => {
@@ -32,8 +33,18 @@ export function ProfileCard({ profile, onDelete, isDeleting = false }: ProfileCa
   return (
     <div
       onClick={handleCardClick}
-      className="bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-all cursor-pointer p-6 relative group hover:scale-105"
+      className={`bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-all cursor-pointer p-6 relative group hover:scale-105 ${
+        isPremium
+          ? "border-2 border-yellow-400 dark:border-yellow-500 shadow-yellow-200/50 dark:shadow-yellow-900/20"
+          : "border border-gray-200 dark:border-gray-700"
+      }`}
     >
+      {/* Premium Crown Icon */}
+      {isPremium && (
+        <div className="absolute -top-2 -right-2 z-20 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full p-1.5 shadow-lg">
+          <Crown className="w-4 h-4 text-white" />
+        </div>
+      )}
       {/* Delete Button */}
       <button
         onClick={handleDelete}
@@ -44,8 +55,17 @@ export function ProfileCard({ profile, onDelete, isDeleting = false }: ProfileCa
         <Trash2 className="w-5 h-5" />
       </button>
 
+      {/* Category Badge */}
+      {profile.category && profile.category !== "General" && (
+        <div className="absolute top-2 left-2 z-10">
+          <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+            {profile.category}
+          </span>
+        </div>
+      )}
+
       {/* AI Update Icon - Premium Feature Teaser */}
-      <div className="absolute top-2 left-2 z-10">
+      <div className={`absolute ${profile.category && profile.category !== "General" ? "top-10 left-2" : "top-2 left-2"} z-10`}>
         <div
           className={`p-1.5 rounded-full transition-colors cursor-help ${
             profile.has_new_update

@@ -3,7 +3,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
-export async function addProfile(url: string, title: string, notes?: string) {
+export async function addProfile(
+  url: string,
+  title: string,
+  notes?: string,
+  category?: string
+) {
   const supabase = await createClient();
 
   // Get current user
@@ -45,6 +50,7 @@ export async function addProfile(url: string, title: string, notes?: string) {
     url: url,
     title: title,
     notes: notes?.trim() || null,
+    category: category?.trim() || "General",
   };
 
   console.log("[addProfile] Inserting profile:", profileData);
