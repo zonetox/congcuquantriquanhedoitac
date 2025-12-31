@@ -1,10 +1,14 @@
 "use client";
 
+"use client";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Target, LayoutDashboard, Settings, Crown, LogOut, Shield } from "lucide-react";
+import { Target, LayoutDashboard, Settings, Crown, LogOut, Shield, Plus } from "lucide-react";
 import { signOut } from "@/lib/auth/actions";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
+import { AddProfileModal } from "@/components/AddProfileModal";
 
 interface SidebarProps {
   userEmail?: string;
@@ -25,6 +29,7 @@ const navigation = [
 
 export function Sidebar({ userEmail, isPremium, isAdmin, currentProfileCount = 0, trialStatus }: SidebarProps) {
   const pathname = usePathname();
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const MAX_FREE_PROFILES = 5;
 
   return (
@@ -52,18 +57,35 @@ export function Sidebar({ userEmail, isPremium, isAdmin, currentProfileCount = 0
           const isActive = pathname === item.href;
           return (
             <div key={item.name}>
-              <Link
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors",
-                  isActive
-                    ? "bg-gradient-to-r from-emerald-600 to-blue-600 text-white shadow-lg"
-                    : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-gray-700"
+              <div className="flex items-center gap-2">
+                <Link
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors flex-1",
+                    isActive
+                      ? "bg-gradient-to-r from-emerald-600 to-blue-600 text-white shadow-lg"
+                      : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-gray-700"
+                  )}
+                >
+                  <item.icon className="w-5 h-5" />
+                  <span className="font-medium">{item.name}</span>
+                </Link>
+                {/* Quick Add Button - chỉ hiển thị ở Dashboard */}
+                {item.name === "Dashboard" && (
+                  <button
+                    onClick={() => setIsModalOpen(true)}
+                    className={cn(
+                      "p-2 rounded-lg transition-colors",
+                      isActive
+                        ? "text-white hover:bg-white/20"
+                        : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-gray-700"
+                    )}
+                    title="Quick Add Profile"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
                 )}
-              >
-                <item.icon className="w-5 h-5" />
-                <span className="font-medium">{item.name}</span>
-              </Link>
+              </div>
               {/* Trial Status & Usage Indicator - chỉ hiển thị dưới Dashboard */}
               {item.name === "Dashboard" && (
                 <div className="px-4 py-2 mt-1 space-y-1">
@@ -140,6 +162,14 @@ export function Sidebar({ userEmail, isPremium, isAdmin, currentProfileCount = 0
           </button>
         </form>
       </div>
+
+      {/* Add Profile Modal */}
+      <AddProfileModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        currentProfileCount={currentProfileCount}
+        isPremium={isPremium || false}
+      />
     </div>
   );
 }

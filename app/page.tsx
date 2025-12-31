@@ -1,5 +1,6 @@
 import { getUser } from "@/lib/supabase/helpers";
 import { getProfiles } from "@/lib/profiles/actions";
+import { getCategories } from "@/lib/categories/actions";
 import { LandingPage } from "@/components/LandingPage";
 import { Sidebar } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
@@ -15,10 +16,11 @@ export default async function Home() {
   }
 
   // If user is logged in, show dashboard
-  // Tối ưu: Gộp queries membership và profiles
-  const [{ data: profiles }, membership] = await Promise.all([
+  // Tối ưu: Gộp queries membership, profiles và categories
+  const [{ data: profiles }, membership, { data: categories }] = await Promise.all([
     getProfiles(),
     getUserMembership(),
+    getCategories(),
   ]);
   const userIsPremium = membership.isPremium;
   const userIsAdmin = membership.isAdmin;
@@ -50,6 +52,7 @@ export default async function Home() {
             hasValidPremium={hasValidPremium}
             trialExpired={trialExpired}
             currentProfileCount={profiles?.length || 0}
+            categories={categories || []}
           />
         </div>
       </div>

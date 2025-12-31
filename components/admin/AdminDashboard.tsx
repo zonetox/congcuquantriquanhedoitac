@@ -263,8 +263,22 @@ export function AdminDashboard({ profiles, error }: AdminDashboardProps) {
             <tbody className="divide-y divide-slate-200 dark:divide-gray-700">
               {filteredProfiles.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-slate-500 dark:text-slate-400">
-                    {searchTerm || selectedUserId ? "No profiles found matching your search." : "No profiles in the system yet."}
+                  <td colSpan={6} className="px-6 py-16">
+                    <div className="text-center space-y-4">
+                      <div className="w-20 h-20 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-gray-700 dark:to-gray-800 rounded-2xl flex items-center justify-center mx-auto">
+                        <Globe className="w-10 h-10 text-slate-400 dark:text-slate-500" />
+                      </div>
+                      <div className="space-y-2">
+                        <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+                          {searchTerm || selectedUserId ? "No profiles found" : "No profiles yet"}
+                        </h3>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+                          {searchTerm || selectedUserId 
+                            ? "Try adjusting your search or filter criteria to find what you're looking for."
+                            : "Profiles will appear here once users start adding them to the system."}
+                        </p>
+                      </div>
+                    </div>
                   </td>
                 </tr>
               ) : (

@@ -17,11 +17,12 @@
 
 **Tech Stack**:
 - **Framework**: Next.js 14 (App Router)
-- **Styling**: Tailwind CSS
+- **Styling**: Tailwind CSS + Custom CSS animations
 - **Backend**: Supabase (Authentication + Database)
 - **Icons**: Lucide React
-- **Notifications**: Sonner (Toast)
+- **Notifications**: Sonner (Toast notifications)
 - **Payment**: Lemon Squeezy (Webhook integration)
+- **Animations**: CSS keyframes (fadeInSlideUp) - không dùng framer-motion
 
 ---
 
@@ -552,6 +553,10 @@ const result = await addProfile({
 **Features**:
 - Logo "Partner Center" với Target icon
 - Navigation links: Dashboard, Settings, Admin (nếu là admin)
+- **Quick Add Button**: Icon Plus nhỏ ngay cạnh menu "Dashboard" để mở Add Profile Modal nhanh
+  - Chỉ hiển thị ở menu Dashboard
+  - Mở `AddProfileModal` khi click
+  - Tooltip: "Quick Add Profile"
 - **Trial Status**: Hiển thị "Trial: X days left" hoặc "Plan: Free" dưới menu Dashboard (chỉ khi không Premium)
   - Props: `trialStatus` (từ parent component)
 - **Usage Indicator**: Hiển thị "Usage: X/5 profiles" dưới Trial Status (chỉ khi không Premium)
@@ -615,6 +620,9 @@ const result = await addProfile({
 - Statistics cards: Total profiles, Unique users, Categories count
 - Search profiles by title, URL, category
 - **Filter by User**: Dropdown để lọc profiles theo user cụ thể
+- **Empty State**: Hiển thị icon và message thân thiện khi không có profiles hoặc không tìm thấy kết quả
+  - Icon: Globe icon trong gradient box
+  - Message khác nhau cho "No profiles yet" vs "No profiles found"
 - Table hiển thị tất cả profiles với:
   - Profile info (favicon, title, notes)
   - URL (clickable link)
@@ -651,14 +659,20 @@ const result = await addProfile({
 - ✅ **Lazy Loading**: Favicons được load khi vào viewport (`loading="lazy"`)
 
 **Features**:
+- **Card Animation**: Fade in và slide up khi load Dashboard
+  - CSS animation: `fadeInSlideUp` (0.5s ease-out)
+  - Stagger delay: Mỗi card có delay khác nhau (0ms, 50ms, 100ms, ... max 500ms)
+  - Props: `animationDelay` (ms)
 - Favicon (80x80, sử dụng Next.js `Image` component, lazy loading)
 - Title (bold, center)
 - Notes (faint, italic, below title)
 - Domain (below notes, with border-top)
 - **Category badge** (top-left, nếu không phải "General"):
-  - **Default categories**: Competitor (Red), Partner (Green), Customer (Blue), Other (Slate)
-  - **Custom categories**: Màu sắc từ `categories.color` trong database
-  - Badge hiển thị màu động từ category color
+  - **Dynamic Color**: Màu nền nhạt (15% opacity) và màu chữ đậm từ `categoryColor` prop
+  - **Default categories**: Competitor (#ef4444), Partner (#10b981), Customer (#3b82f6), Other (#8b5cf6)
+  - **Custom categories**: Màu sắc từ `categories.color` trong database (pass từ ProfileGrid)
+  - Border với 30% opacity của category color
+  - Props: `categoryColor` (hex color string)
 - AI Update icon (Radio icon, top-left, gray nếu `has_new_update = false`)
 - Delete button (top-right, hiện khi hover)
 - Premium crown icon (top-right, nếu user Premium)
@@ -680,11 +694,16 @@ const result = await addProfile({
 - Gap: 6 (24px)
 
 **Features**:
+- **Category Color Map**: Tạo map từ categories để pass màu vào ProfileCard
+  - Default colors cho default categories
+  - User-defined categories từ `categories` prop override defaults
+  - Props: `categories` (array of Category objects)
 - Empty state với icon và message
 - Delete confirmation dialog
-- Toast notifications
+- Toast notifications (Sonner)
 - Auto-refresh sau khi delete
-- Pass `isBlurred` prop cho ProfileCard dựa trên trial status và index
+- Pass `isBlurred`, `categoryColor`, và `animationDelay` props cho ProfileCard
+- **Stagger Animation**: Mỗi card có animation delay khác nhau (index * 50ms, max 500ms)
 
 ### 7. Navbar (`components/Navbar.tsx`) ⚠️ DEPRECATED
 
@@ -1050,7 +1069,7 @@ Trước khi commit code, đảm bảo:
 ---
 
 **📅 Last Updated**: 2024-12-19
-**Version**: 2.2.0 (Performance Optimizations: Query Optimization, Image Lazy Loading, Logging Cleanup)
+**Version**: 2.5.0 (UX Enhancements: Dynamic Category Badges, Card Animations, Quick Add, Empty States)
 **Maintained by**: Development Team
 
 **🔄 Recent Updates** (2024-12-19):
@@ -1110,3 +1129,27 @@ Trước khi commit code, đảm bảo:
   - Sidebar: `hidden lg:flex` → ẩn trên mobile, dùng Header hamburger menu
   - Header mobile menu: Có usage indicator và đầy đủ navigation links
 - ✅ **Modal Implementation**: Xác nhận DashboardContent đã sử dụng AddProfileModal với floating button
+
+**UX Enhancements** (v2.5.0):
+- ✅ **Dynamic Category Badges**: 
+  - Category badges sử dụng màu động từ `categories.color` trong database
+  - Màu nền nhạt (15% opacity) và màu chữ đậm từ category color
+  - Border với 30% opacity của category color
+  - Default colors cho default categories (Competitor, Partner, Customer, Other)
+  - User-defined categories override defaults
+- ✅ **Card Animations**: 
+  - CSS animation `fadeInSlideUp` (fade in + slide up) khi load Dashboard
+  - Stagger effect: Mỗi card có delay khác nhau (0ms, 50ms, 100ms, ... max 500ms)
+  - Animation duration: 0.5s ease-out
+  - Defined in `app/globals.css`
+- ✅ **Quick Add Button**: 
+  - Icon Plus nhỏ trong Sidebar ngay cạnh menu "Dashboard"
+  - Mở `AddProfileModal` nhanh từ bất kỳ đâu
+  - Tooltip: "Quick Add Profile"
+- ✅ **Empty States**: 
+  - Admin Dashboard: Icon và message thân thiện khi không có profiles hoặc không tìm thấy kết quả
+  - Different messages cho "No profiles yet" vs "No profiles found"
+- ✅ **Toast Notifications**: 
+  - Tất cả actions (add, delete, update) đều có toast notifications
+  - Sử dụng Sonner library
+  - Success/Error messages rõ ràng

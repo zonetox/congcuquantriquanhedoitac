@@ -13,9 +13,11 @@ interface ProfileCardProps {
   isDeleting?: boolean;
   isPremium?: boolean;
   isBlurred?: boolean; // Profile bị blur (trial expired, từ thứ 6 trở đi)
+  categoryColor?: string; // Màu của category từ categories table
+  animationDelay?: number; // Delay cho animation (ms)
 }
 
-export const ProfileCard = memo(function ProfileCard({ profile, onDelete, isDeleting = false, isPremium = false, isBlurred = false }: ProfileCardProps) {
+export const ProfileCard = memo(function ProfileCard({ profile, onDelete, isDeleting = false, isPremium = false, isBlurred = false, categoryColor, animationDelay = 0 }: ProfileCardProps) {
   const [faviconError, setFaviconError] = useState(false);
 
   const handleCardClick = (e: React.MouseEvent) => {
@@ -32,6 +34,26 @@ export const ProfileCard = memo(function ProfileCard({ profile, onDelete, isDele
     onDelete(profile.id);
   };
 
+  // Helper function để convert hex color thành rgba với opacity
+  const hexToRgba = (hex: string, opacity: number) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+  };
+
+  // Default colors cho các category cố định
+  const defaultCategoryColors: Record<string, string> = {
+    Competitor: "#ef4444",
+    Partner: "#10b981",
+    Customer: "#3b82f6",
+    Other: "#8b5cf6",
+    General: "#64748b",
+  };
+
+  // Lấy màu category (từ prop hoặc default)
+  const finalCategoryColor = categoryColor || defaultCategoryColors[profile.category || "General"] || "#64748b";
+
   return (
     <div
       onClick={isBlurred ? undefined : handleCardClick}
@@ -43,11 +65,14 @@ export const ProfileCard = memo(function ProfileCard({ profile, onDelete, isDele
         isPremium
           ? "border-yellow-400 dark:border-yellow-500 shadow-yellow-200/30 dark:shadow-yellow-900/20"
           : "border-slate-200 dark:border-gray-700 hover:border-emerald-300 dark:hover:border-emerald-600"
-      } ${!isBlurred ? "transform hover:-translate-y-2 hover:scale-[1.02]" : ""}`}
-      style={isBlurred ? {
-        filter: "blur(4px) grayscale(1)",
-        pointerEvents: "none" as const,
-      } : undefined}
+      } ${!isBlurred ? "transform hover:-translate-y-2 hover:scale-[1.02]" : ""} animate-fade-in-slide-up opacity-0`}
+      style={{
+        ...(isBlurred ? {
+          filter: "blur(4px) grayscale(1)",
+          pointerEvents: "none" as const,
+        } : {}),
+        animationDelay: `${animationDelay}ms`,
+      }}
     >
       {/* Premium Crown Icon */}
       {isPremium && (
@@ -66,24 +91,21 @@ export const ProfileCard = memo(function ProfileCard({ profile, onDelete, isDele
         <Trash2 className="w-5 h-5" />
       </button>
 
-      {/* Category Badge */}
-      {profile.category && profile.category !== "General" && (() => {
-        const categoryColors = {
-          Competitor: "bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800",
-          Partner: "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800",
-          Customer: "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800",
-          Other: "bg-slate-100 dark:bg-slate-700/50 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-600",
-        };
-        const colorClass = categoryColors[profile.category as keyof typeof categoryColors] || categoryColors.Other;
-        
-        return (
-          <div className="absolute top-3 left-3 z-10">
-            <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${colorClass}`}>
-              {profile.category}
-            </span>
-          </div>
-        );
-      })()}
+      {/* Category Badge - Dynamic color từ category */}
+      {profile.category && profile.category !== "General" && (
+        <div className="absolute top-3 left-3 z-10">
+          <span
+            className="px-3 py-1 text-xs font-semibold rounded-full border"
+            style={{
+              backgroundColor: hexToRgba(finalCategoryColor, 0.15), // Màu nền nhạt (15% opacity)
+              color: finalCategoryColor, // Màu chữ đậm
+              borderColor: hexToRgba(finalCategoryColor, 0.3), // Border với 30% opacity
+            }}
+          >
+            {profile.category}
+          </span>
+        </div>
+      )}
 
       {/* AI Update Icon - Premium Feature Teaser */}
       <div className={`absolute ${profile.category && profile.category !== "General" ? "top-12 left-3" : "top-3 left-3"} z-10`}>

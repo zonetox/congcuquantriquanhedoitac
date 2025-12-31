@@ -6,6 +6,7 @@ import { ProfileGrid } from "@/components/ProfileGrid";
 import { AddProfileModal } from "@/components/AddProfileModal";
 import { UpgradeButton } from "@/components/UpgradeButton";
 import type { Profile } from "@/lib/profiles/types";
+import type { Category } from "@/lib/categories/actions";
 
 interface DashboardContentProps {
   profiles: Profile[];
@@ -13,9 +14,10 @@ interface DashboardContentProps {
   hasValidPremium?: boolean; // is_premium === true HOẶC đang trong trial
   trialExpired?: boolean; // Trial đã hết hạn và không phải premium
   currentProfileCount: number;
+  categories?: Category[]; // Categories để pass vào ProfileGrid
 }
 
-export function DashboardContent({ profiles, isPremium, hasValidPremium = false, trialExpired = false, currentProfileCount }: DashboardContentProps) {
+export function DashboardContent({ profiles, isPremium, hasValidPremium = false, trialExpired = false, currentProfileCount, categories = [] }: DashboardContentProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (
@@ -51,6 +53,7 @@ export function DashboardContent({ profiles, isPremium, hasValidPremium = false,
         isPremium={isPremium}
         hasValidPremium={hasValidPremium}
         trialExpired={trialExpired}
+        categories={categories}
       />
 
       {/* Floating Add Button */}

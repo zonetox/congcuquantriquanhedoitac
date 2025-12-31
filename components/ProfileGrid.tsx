@@ -8,15 +8,38 @@ import { toast } from "sonner";
 import { Target } from "lucide-react";
 
 import type { Profile } from "@/lib/profiles/types";
+import type { Category } from "@/lib/categories/actions";
 
 interface ProfileGridProps {
   profiles: Profile[];
   isPremium?: boolean;
   hasValidPremium?: boolean; // is_premium === true HOẶC đang trong trial
   trialExpired?: boolean; // Trial đã hết hạn và không phải premium
+  categories?: Category[]; // Categories để lấy màu
 }
 
-export function ProfileGrid({ profiles, isPremium = false, hasValidPremium = false, trialExpired = false }: ProfileGridProps) {
+export function ProfileGrid({ profiles, isPremium = false, hasValidPremium = false, trialExpired = false, categories = [] }: ProfileGridProps) {
+  // Tạo map category name -> color
+  const categoryColorMap = new Map<string, string>();
+  
+  // Default colors
+  const defaultColors: Record<string, string> = {
+    Competitor: "#ef4444",
+    Partner: "#10b981",
+    Customer: "#3b82f6",
+    Other: "#8b5cf6",
+    General: "#64748b",
+  };
+  
+  // Thêm default colors vào map
+  Object.entries(defaultColors).forEach(([name, color]) => {
+    categoryColorMap.set(name, color);
+  });
+  
+  // Thêm user-defined categories vào map (override defaults nếu trùng tên)
+  categories.forEach((cat) => {
+    categoryColorMap.set(cat.name, cat.color);
+  });
   const router = useRouter();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -81,6 +104,12 @@ export function ProfileGrid({ profiles, isPremium = false, hasValidPremium = fal
           // Logic blur: Nếu trial expired và không premium, blur từ profile thứ 6 (index >= 5)
           const shouldBlur = trialExpired && !isPremium && index >= 5;
           
+          // Lấy màu category
+          const categoryColor = profile.category ? categoryColorMap.get(profile.category) : undefined;
+          
+          // Animation delay (stagger effect)
+          const animationDelay = Math.min(index * 50, 500); // Max 500ms delay
+          
           return (
             <ProfileCard
               key={profile.id}
@@ -89,6 +118,8 @@ export function ProfileGrid({ profiles, isPremium = false, hasValidPremium = fal
               isDeleting={deletingId === profile.id}
               isPremium={isPremium}
               isBlurred={shouldBlur}
+              categoryColor={categoryColor}
+              animationDelay={animationDelay}
             />
           );
         })}
