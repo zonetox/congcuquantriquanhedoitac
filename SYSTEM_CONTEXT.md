@@ -262,13 +262,21 @@ Partner Relationship Management/
 
 **Functions chính**:
 
+#### `getUserMembership(): Promise<{isPremium: boolean, isAdmin: boolean, role: 'admin' | 'user' | null}>` ✅ TỐI ƯU
+- **Tối ưu performance**: Gộp `isPremium()` và `isAdmin()` thành 1 query
+- **Khuyến nghị**: Dùng function này thay vì gọi `isPremium()` và `isAdmin()` riêng biệt
+- Logic: Query từ `user_profiles` một lần, trả về cả `is_premium` và `role`
+- **Sử dụng**: `app/page.tsx`, `app/admin/page.tsx`, `app/settings/page.tsx`
+
 #### `isPremium(): Promise<boolean>`
 - Kiểm tra xem user có phải Premium không
 - Logic: Query từ `user_profiles.is_premium` (KHÔNG dùng metadata)
+- ⚠️ **Nếu cần cả isPremium và isAdmin, dùng `getUserMembership()` để tối ưu**
 
 #### `isAdmin(): Promise<boolean>`
 - Kiểm tra xem user có phải Admin không
 - Logic: Query từ `user_profiles.role === 'admin'` (KHÔNG dùng metadata)
+- ⚠️ **Nếu cần cả isPremium và isAdmin, dùng `getUserMembership()` để tối ưu**
 
 #### `getUserRole(): Promise<'admin' | 'user' | null>`
 - Lấy role của user hiện tại
@@ -517,8 +525,13 @@ const result = await addProfile({
 
 **Mục đích**: Hiển thị profile dưới dạng Business Card
 
+**Performance Optimizations**:
+- ✅ **Memoization**: Sử dụng `React.memo()` để tránh re-render không cần thiết
+- ✅ **Image Optimization**: Sử dụng Next.js `Image` component với lazy loading
+- ✅ **Lazy Loading**: Favicons được load khi vào viewport (`loading="lazy"`)
+
 **Features**:
-- Favicon (20x20, với fallback Globe icon)
+- Favicon (80x80, sử dụng Next.js `Image` component, lazy loading)
 - Title (bold, center)
 - Notes (faint, italic, below title)
 - Domain (below notes, with border-top)
@@ -652,6 +665,7 @@ const result = await addProfile({
 - **Buttons**: Rounded (`rounded-lg`, `rounded-xl`), gradient backgrounds, hover effects
 - **Cards**: Rounded (`rounded-2xl`), shadow (`shadow-lg`, `shadow-2xl`), hover scale/translate
 - **Modals**: Backdrop blur, centered, max-width `max-w-2xl`
+- **Images**: Sử dụng Next.js `Image` component với lazy loading cho tối ưu performance
 
 ---
 
@@ -672,6 +686,7 @@ const result = await addProfile({
 #### `getFaviconUrl(url: string): string`
 - Tạo Google Favicon API URL
 - Format: `https://www.google.com/s2/favicons?domain={domain}&sz=64`
+- **Lưu ý**: Sử dụng với Next.js `Image` component và `loading="lazy"` để tối ưu performance
 
 #### `isValidUrl(url: string): boolean`
 - Kiểm tra URL có hợp lệ không (phải có http/https)
