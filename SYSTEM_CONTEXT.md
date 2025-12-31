@@ -259,8 +259,27 @@ export async function isPremium(): Promise<boolean>
 **Parameters**:
 - `url` (string, required): URL profile (phải có http/https)
 - `title` (string, required): Tên hiển thị
-- `notes` (string, optional): Ghi chú (Premium only)
+- `notes` (string, optional): Ghi chú (Premium only). **Lưu ý**: Truyền `undefined` nếu không có, không truyền `null`
 - `category` (string, optional): Category (Premium only, default: "General")
+
+**Cách gọi** (⚠️ QUAN TRỌNG):
+```typescript
+// ✅ ĐÚNG: Truyền parameters riêng biệt
+const result = await addProfile(
+  normalizedUrl,
+  title.trim(),
+  notes.trim() || undefined,  // Dùng undefined, không dùng null
+  isPremium ? (category || "General") : "General"
+);
+
+// ❌ SAI: Không truyền object
+const result = await addProfile({
+  url: normalizedUrl,
+  title: title.trim(),
+  notes: notes.trim() || null,  // SAI: null không được chấp nhận
+  category: category
+});
+```
 
 **Logic**:
 1. ✅ Kiểm tra authentication (phải có user)
@@ -337,6 +356,11 @@ export async function isPremium(): Promise<boolean>
 - Free limit warning (5 profiles)
 - Loading state với spinner
 - Toast notifications
+
+**Implementation Notes**:
+- Gọi `addProfile()` với parameters riêng biệt (không phải object)
+- Sử dụng `e.clipboardData.getData("text")` để lấy text từ clipboard (không dùng `getText()`)
+- Notes phải là `undefined` nếu empty, không dùng `null`
 
 ### 4. Profile Card (`components/ProfileCard.tsx`)
 
@@ -541,10 +565,21 @@ LEMON_SQUEEZY_WEBHOOK_SECRET=your-webhook-secret
 - Sau khi thêm/xóa profile, phải gọi `router.refresh()` để cập nhật UI
 - Sử dụng Server Actions thay vì API routes khi có thể
 - Revalidate path sau mutations
+- **Gọi Server Actions với parameters riêng biệt** (không truyền object):
+  ```typescript
+  // ✅ ĐÚNG
+  await addProfile(url, title, notes, category);
+  
+  // ❌ SAI
+  await addProfile({ url, title, notes, category });
+  ```
+- **Optional parameters**: Dùng `undefined` thay vì `null` cho optional string parameters
 
 ❌ **KHÔNG**:
 - Quên refresh UI sau mutations
 - Sử dụng client-side state để sync với database (phải dùng Server Actions)
+- Truyền object vào Server Actions (phải truyền parameters riêng biệt)
+- Dùng `null` cho optional string parameters (phải dùng `undefined`)
 
 ### 5. Premium Logic
 
