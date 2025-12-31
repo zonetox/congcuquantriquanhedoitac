@@ -4,6 +4,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
 import { getUserMembership } from "@/lib/membership";
 import { UpgradeButton } from "@/components/UpgradeButton";
+import { ManageCategories } from "@/components/ManageCategories";
 
 export default async function SettingsPage() {
   const user = await getUser();
@@ -82,6 +83,11 @@ export default async function SettingsPage() {
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Categories Section */}
+            <div>
+              <ManageCategories isPremium={userIsPremium} />
             </div>
           </div>
         </div>

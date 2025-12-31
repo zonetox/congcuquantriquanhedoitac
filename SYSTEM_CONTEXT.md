@@ -58,7 +58,7 @@ CREATE TABLE public.profiles_tracked (
 | `title` | TEXT | NOT NULL | Tên hiển thị (Tên công ty/đối tác) |
 | `url` | TEXT | NOT NULL | Link gốc profile (phải có http/https) |
 | `rss_url` | TEXT | NULLABLE | Link RSS để check update (dùng cho tính năng tương lai) |
-| `category` | TEXT | NULLABLE, DEFAULT 'General' | Phân loại: 'General', 'Competitor', 'Partner', 'Customer', 'Other' |
+| `category` | TEXT | NULLABLE, DEFAULT 'General' | Phân loại: Có thể là default categories hoặc custom categories từ bảng `categories` |
 | `notes` | TEXT | NULLABLE | Ghi chú cá nhân (Premium feature) |
 | `has_new_update` | BOOLEAN | NULLABLE, DEFAULT false | Flag để đánh dấu có update mới (AI feature - coming soon) |
 | `created_at` | TIMESTAMP WITH TIME ZONE | NOT NULL, DEFAULT now() | Thời gian tạo record |
@@ -141,6 +141,76 @@ CREATE TABLE public.user_profiles (
 - Premium status được cập nhật tự động từ Lemon Squeezy webhook (update vào `user_profiles`)
 - Role phải được set thủ công qua SQL (xem `SQL_REQUIREMENTS.md`)
 - Trigger tự động tạo profile khi user mới đăng nhập
+
+### 3. Bảng `public.categories` ✅ Dynamic Categories
+
+**Mục đích**: Lưu trữ các categories tùy chỉnh do user tạo. Categories là **dynamic** (động), không còn hardcoded.
+
+**Schema chi tiết**:
+
+```sql
+CREATE TABLE public.categories (
+  id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  color TEXT DEFAULT '#3b82f6',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  UNIQUE(user_id, name) -- Tránh trùng tên danh mục cho cùng 1 user
+);
+```
+
+**Chi tiết các trường**:
+
+| Trường | Kiểu | Ràng buộc | Mô tả |
+|--------|------|-----------|-------|
+| `id` | UUID | PRIMARY KEY | ID tự động |
+| `user_id` | UUID | FOREIGN KEY → auth.users(id) | ID của user sở hữu category |
+| `name` | TEXT | NOT NULL, UNIQUE(user_id, name) | Tên category (không trùng trong cùng user) |
+| `color` | TEXT | DEFAULT '#3b82f6' | Màu sắc của category (hex color) |
+| `created_at` | TIMESTAMP WITH TIME ZONE | DEFAULT now() | Thời gian tạo |
+
+**Row Level Security (RLS)**:
+- ✅ RLS đã được bật
+- Policy: "Categories access policy" - User quản lý categories của họ, Admin quản lý tất cả
+
+**Giới hạn Categories**:
+- **Free users**: Tối đa 3 categories
+- **Premium/Trial users**: Unlimited categories
+
+**Default Categories** (không lưu trong database, hiển thị mặc định):
+- General (Slate)
+- Competitor (Red)
+- Partner (Green)
+- Customer (Blue)
+- Other (Violet)
+
+### 4. Bảng `public.admin_logs` ✅ Admin Activity Logging
+
+**Mục đích**: Lưu trữ log các hành động của Admin để audit và theo dõi.
+
+**Schema chi tiết**:
+
+```sql
+CREATE TABLE public.admin_logs (
+  id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
+  admin_id UUID REFERENCES auth.users(id),
+  action TEXT,
+  target_user_id UUID,
+  details JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+```
+
+**Chi tiết các trường**:
+
+| Trường | Kiểu | Mô tả |
+|--------|------|-------|
+| `id` | UUID | PRIMARY KEY |
+| `admin_id` | UUID | ID của admin thực hiện hành động |
+| `action` | TEXT | Loại hành động (e.g., "update_user", "delete_profile") |
+| `target_user_id` | UUID | ID của user bị ảnh hưởng (nếu có) |
+| `details` | JSONB | Chi tiết hành động (JSON) |
+| `created_at` | TIMESTAMP WITH TIME ZONE | Thời gian thực hiện |
 
 ---
 
@@ -531,22 +601,41 @@ const result = await addProfile({
 
 ### 4. Admin Dashboard (`components/admin/AdminDashboard.tsx`) ✅ MỚI
 
-**Mục đích**: Admin dashboard để quản lý tất cả profiles trong hệ thống
+**Mục đích**: Admin dashboard để quản lý users và profiles trong hệ thống
 
-**Features**:
+**Tabs**:
+- **Profiles Tab**: Quản lý tất cả profiles
+- **Users Tab**: Quản lý tất cả users
+
+**Profiles Tab Features**:
 - Statistics cards: Total profiles, Unique users, Categories count
-- Search và filter profiles
+- Search profiles by title, URL, category
+- **Filter by User**: Dropdown để lọc profiles theo user cụ thể
 - Table hiển thị tất cả profiles với:
   - Profile info (favicon, title, notes)
   - URL (clickable link)
   - Category badge
   - User ID (truncated)
   - Created date
+  - **Actions**: Edit, Delete buttons
+- **Inline Edit**: Click Edit để chỉnh sửa profile trực tiếp trong table
+- **Delete Profile**: Xóa profile của bất kỳ user nào
 - Category breakdown section
+
+**Users Tab Features**:
+- Sử dụng `UserManagement` component
+- Table hiển thị tất cả users với:
+  - Email
+  - Role (User/Admin badge)
+  - Premium status
+  - **Actions**: Edit, Delete buttons
+- **Edit User**: Thay đổi Email, Role (User/Admin), Premium status
+- **Delete User**: Xóa user và tất cả dữ liệu liên quan (Cascade)
 
 **Access Control**:
 - Chỉ admin mới có thể truy cập
 - Route: `/admin`
+- Tất cả actions được log vào `admin_logs` table
 
 ### 5. Profile Card (`components/ProfileCard.tsx`)
 
@@ -563,10 +652,9 @@ const result = await addProfile({
 - Notes (faint, italic, below title)
 - Domain (below notes, with border-top)
 - **Category badge** (top-left, nếu không phải "General"):
-  - **Competitor**: Red (`bg-red-100`, `text-red-700`, `border-red-200`)
-  - **Partner**: Green (`bg-emerald-100`, `text-emerald-700`, `border-emerald-200`)
-  - **Customer**: Blue (`bg-blue-100`, `text-blue-700`, `border-blue-200`)
-  - **Other**: Slate (màu mặc định)
+  - **Default categories**: Competitor (Red), Partner (Green), Customer (Blue), Other (Slate)
+  - **Custom categories**: Màu sắc từ `categories.color` trong database
+  - Badge hiển thị màu động từ category color
 - AI Update icon (Radio icon, top-left, gray nếu `has_new_update = false`)
 - Delete button (top-right, hiện khi hover)
 - Premium crown icon (top-right, nếu user Premium)
@@ -951,6 +1039,18 @@ Trước khi commit code, đảm bảo:
 **Maintained by**: Development Team
 
 **🔄 Recent Updates** (2024-12-19):
+
+**Dynamic Categories + Advanced Admin Features** (v2.4.0):
+- ✅ **Dynamic Categories**: Thay thế hardcoded categories bằng bảng `categories` trong database
+- ✅ **Category Management**: User có thể tạo, sửa, xóa categories tùy chỉnh với màu sắc
+- ✅ **Category Limits**: Free users tối đa 3 categories, Premium/Trial unlimited
+- ✅ **Add Category in Modal**: Thêm category mới ngay trong Add Profile Modal
+- ✅ **Settings Page**: Manage Categories section để quản lý categories
+- ✅ **Admin User Management**: Admin có thể Edit/Delete users, thay đổi Email, Role, Premium status
+- ✅ **Admin Profile Management**: Admin có thể Edit/Delete profiles của bất kỳ user nào
+- ✅ **Admin Filter**: Filter profiles theo user trong Admin Dashboard
+- ✅ **Admin Logs**: Bảng `admin_logs` để ghi lại các hành động của Admin
+- ✅ **Admin Tabs**: Admin Dashboard có tabs cho Profiles và Users
 
 **Trial 15 Days + Blur Data** (v2.3.0):
 - ✅ **Trial Logic**: Thêm `trial_started_at` vào `user_profiles` table

@@ -6,6 +6,7 @@ import { X, Loader2, Globe } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { getFaviconUrl, getDomainFromUrl, isValidUrl, normalizeUrl } from "@/lib/utils/url";
+import { CategorySelector } from "@/components/CategorySelector";
 
 // Giới hạn miễn phí: 5 profiles
 const MAX_PROFILES = 5;
@@ -17,18 +18,7 @@ interface AddProfileModalProps {
   isPremium?: boolean;
 }
 
-const CATEGORIES = [
-  { value: "General", label: "General" },
-  { value: "Competitor", label: "Competitor" },
-  { value: "Partner", label: "Partner" },
-  { value: "Customer", label: "Customer" },
-  { value: "Other", label: "Other" },
-] as const;
-
-// Free users chỉ được chọn General
-const FREE_CATEGORIES = [
-  { value: "General", label: "General" },
-] as const;
+// Categories are now dynamic from database, handled by CategorySelector component
 
 export function AddProfileModal({
   isOpen,
@@ -233,29 +223,17 @@ export function AddProfileModal({
             />
           </div>
 
-          {/* Category Select - Premium Feature */}
+          {/* Category Select - Dynamic Categories */}
           <div>
             <label htmlFor="category" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
               Category {isUserPremium ? "" : "(Premium)"}
             </label>
-            <select
-              id="category"
+            <CategorySelector
               value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              disabled={!isUserPremium || loading}
-              className="w-full px-4 py-3 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-700 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {(isUserPremium ? CATEGORIES : FREE_CATEGORIES).map((cat) => (
-                <option key={cat.value} value={cat.value}>
-                  {cat.label}
-                </option>
-              ))}
-            </select>
-            {!isUserPremium && (
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                Free users can only select &quot;General&quot;. Upgrade to Premium to use all categories including &quot;Competitor&quot;.
-              </p>
-            )}
+              onChange={setCategory}
+              isPremium={isUserPremium}
+              disabled={loading}
+            />
           </div>
 
           {/* Notes Textarea - Premium Feature */}
