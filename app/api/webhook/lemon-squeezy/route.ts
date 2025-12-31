@@ -114,32 +114,21 @@ export async function POST(request: NextRequest) {
 
     console.log("[Webhook] Processing order for email:", customerEmail);
 
-    // Tạo admin client để có quyền cập nhật user
+    // Tạo admin client để có quyền cập nhật user_profiles
     const supabase = createAdminClient();
 
-    // Tìm user theo email trong auth.users
-    // Note: Supabase Admin API không có method trực tiếp để tìm user theo email
-    // Nên phải list users và filter. Với số lượng users nhỏ, cách này ổn.
-    // Có thể optimize sau bằng cách cache hoặc sử dụng database query trực tiếp
-    const { data: usersData, error: findError } = await supabase.auth.admin.listUsers();
+    // Tìm user theo email trong user_profiles (tối ưu hơn list all users)
+    const { data: userProfile, error: findError } = await supabase
+      .from("user_profiles")
+      .select("id, email")
+      .ilike("email", customerEmail)
+      .single();
 
-    if (findError) {
-      console.error("[Webhook] Error finding users:", findError);
-      return NextResponse.json(
-        { error: "Failed to find user" },
-        { status: 500 }
-      );
-    }
-
-    // Tìm user có email khớp (case-insensitive)
-    const user = usersData.users.find(
-      (u) => u.email?.toLowerCase() === customerEmail.toLowerCase()
-    );
-
-    if (!user) {
+    if (findError || !userProfile) {
       console.warn(
         "[Webhook] User not found with email:",
-        customerEmail
+        customerEmail,
+        findError
       );
       return NextResponse.json(
         {
@@ -150,33 +139,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("[Webhook] Found user:", user.id);
+    console.log("[Webhook] Found user:", userProfile.id);
 
-    // Cập nhật user metadata với is_premium = true
-    const { data: updatedUser, error: updateError } =
-      await supabase.auth.admin.updateUserById(user.id, {
-        user_metadata: {
-          ...user.user_metadata,
-          is_premium: true,
-          premium_activated_at: new Date().toISOString(),
-          lemon_squeezy_order_id: payload.data?.id || null,
-        },
-      });
+    // Cập nhật user_profiles với is_premium = true
+    // Sử dụng Admin Client để bypass RLS
+    const { data: updatedProfile, error: updateError } = await supabase
+      .from("user_profiles")
+      .update({
+        is_premium: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", userProfile.id)
+      .select()
+      .single();
 
     if (updateError) {
-      console.error("[Webhook] Error updating user:", updateError);
+      console.error("[Webhook] Error updating user_profiles:", updateError);
       return NextResponse.json(
-        { error: "Failed to update user" },
+        { error: "Failed to update user profile" },
         { status: 500 }
       );
     }
 
-    console.log("[Webhook] Successfully updated user to premium:", user.id);
+    console.log("[Webhook] User profile updated successfully:", updatedProfile?.id);
 
     return NextResponse.json({
       success: true,
       message: "User upgraded to premium",
-      userId: user.id,
+      userId: userProfile.id,
       email: customerEmail,
     });
   } catch (error: any) {

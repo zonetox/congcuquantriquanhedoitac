@@ -5,53 +5,24 @@ import { createClient } from "@/lib/supabase/server";
 /**
  * Membership & Role Management
  * 
- * File này chứa các functions để kiểm tra quyền hạn của user:
- * - Premium status
- * - User role (user/admin)
- * - Feature access
+ * File này chứa các functions để kiểm tra quyền hạn của user.
+ * Tất cả data được lấy từ bảng user_profiles (Single Source of Truth).
+ * 
+ * ⚠️ KHÔNG còn dùng user_metadata cho role và is_premium
  */
 
-/**
- * Kiểm tra xem user có phải Premium không
- */
-export async function isPremium(): Promise<boolean> {
-  const supabase = await createClient();
-  
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return false;
-  }
-
-  return user.user_metadata?.is_premium === true;
+interface UserProfile {
+  id: string;
+  email: string | null;
+  role: string;
+  is_premium: boolean;
+  updated_at: string;
 }
 
 /**
- * Kiểm tra xem user có phải Admin không
+ * Lấy user profile từ database
  */
-export async function isAdmin(): Promise<boolean> {
-  const supabase = await createClient();
-  
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return false;
-  }
-
-  return user.user_metadata?.role === "admin";
-}
-
-/**
- * Lấy role của user hiện tại
- * @returns 'admin' | 'user' | null
- */
-export async function getUserRole(): Promise<"admin" | "user" | null> {
+async function getUserProfile(): Promise<UserProfile | null> {
   const supabase = await createClient();
   
   const {
@@ -63,8 +34,53 @@ export async function getUserRole(): Promise<"admin" | "user" | null> {
     return null;
   }
 
-  const role = user.user_metadata?.role;
-  return role === "admin" ? "admin" : role === "user" ? "user" : "user"; // Default to 'user'
+  // Query từ bảng user_profiles
+  const { data: profile, error } = await supabase
+    .from("user_profiles")
+    .select("*")
+    .eq("id", user.id)
+    .single();
+
+  if (error || !profile) {
+    // Nếu không tìm thấy profile, trả về default
+    // (Có thể xảy ra nếu trigger chưa chạy hoặc user mới tạo)
+    return {
+      id: user.id,
+      email: user.email || null,
+      role: "user",
+      is_premium: false,
+      updated_at: new Date().toISOString(),
+    };
+  }
+
+  return profile as UserProfile;
+}
+
+/**
+ * Kiểm tra xem user có phải Premium không
+ */
+export async function isPremium(): Promise<boolean> {
+  const profile = await getUserProfile();
+  return profile?.is_premium === true;
+}
+
+/**
+ * Kiểm tra xem user có phải Admin không
+ */
+export async function isAdmin(): Promise<boolean> {
+  const profile = await getUserProfile();
+  return profile?.role === "admin";
+}
+
+/**
+ * Lấy role của user hiện tại
+ * @returns 'admin' | 'user' | null
+ */
+export async function getUserRole(): Promise<"admin" | "user" | null> {
+  const profile = await getUserProfile();
+  if (!profile) return null;
+  
+  return profile.role === "admin" ? "admin" : "user";
 }
 
 /**
@@ -142,4 +158,3 @@ export async function getMembershipInfo(): Promise<{
     maxProfiles: premium ? null : 5, // 5 for free, null (unlimited) for premium
   };
 }
-

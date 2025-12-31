@@ -3,30 +3,17 @@
 import { createClient } from "@/lib/supabase/server";
 
 /**
- * Kiểm tra xem user có phải premium không
+ * ⚠️ DEPRECATED: File này đã được thay thế bởi lib/membership.ts
  * 
- * Logic:
- * 1. Kiểm tra user.user_metadata?.is_premium (sẽ được cập nhật từ Lemon Squeezy webhook)
- * 2. Nếu không có trong metadata, mặc định là false (free user)
- * 
- * Sau này có thể mở rộng để check từ bảng users riêng trong database
+ * Sử dụng lib/membership.ts thay vì file này.
+ * File này được giữ lại để tương thích ngược, nhưng sẽ bị xóa trong tương lai.
+ */
+
+/**
+ * @deprecated Sử dụng isPremium() từ lib/membership.ts thay thế
  */
 export async function isPremium(): Promise<boolean> {
-  const supabase = await createClient();
-  
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return false;
-  }
-
-  // Kiểm tra từ user metadata (sẽ được cập nhật từ Lemon Squeezy webhook)
-  // Tạm thời: Mặc định false (free user)
-  const isPremium = user.user_metadata?.is_premium === true;
-  
-  return isPremium;
+  // Forward to new implementation
+  const { isPremium: newIsPremium } = await import("@/lib/membership");
+  return newIsPremium();
 }
-

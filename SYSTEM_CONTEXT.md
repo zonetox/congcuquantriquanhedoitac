@@ -78,34 +78,65 @@ CREATE TABLE public.profiles_tracked (
 
 ---
 
-### 2. Bảng `auth.users` (Supabase Auth)
+### 2. Bảng `public.user_profiles` ✅ Single Source of Truth
 
-**Mục đích**: Quản lý authentication và user metadata.
+**Mục đích**: Lưu trữ thông tin membership và role của user. **Đây là nguồn dữ liệu duy nhất** cho membership và role, thay thế hoàn toàn `user_metadata`.
 
-**Metadata quan trọng** (lưu trong `user_metadata`):
+**Schema chi tiết**:
 
-```typescript
-{
-  is_premium: boolean,           // true nếu user đã upgrade Premium
-  premium_activated_at: string,  // Timestamp khi activate Premium
-  lemon_squeezy_order_id: string, // Order ID từ Lemon Squeezy
-  role: string                    // 'admin' hoặc 'user' (default: 'user')
-}
+```sql
+CREATE TABLE public.user_profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  email TEXT,
+  role TEXT DEFAULT 'user', -- 'user' hoặc 'admin'
+  is_premium BOOLEAN DEFAULT false,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
 ```
+
+**Chi tiết các trường**:
+
+| Trường | Kiểu | Ràng buộc | Mô tả |
+|--------|------|-----------|-------|
+| `id` | UUID | PRIMARY KEY, FOREIGN KEY → auth.users(id) | ID của user (khớp với auth.users) |
+| `email` | TEXT | NULLABLE | Email của user (để dễ query) |
+| `role` | TEXT | DEFAULT 'user' | Role: 'user' hoặc 'admin' |
+| `is_premium` | BOOLEAN | DEFAULT false | Premium status |
+| `updated_at` | TIMESTAMP WITH TIME ZONE | DEFAULT now() | Thời gian cập nhật |
+
+**Indexes**:
+- `idx_user_profiles_email` (BTREE) trên `email` - Tối ưu query theo email
+- `idx_user_profiles_role` (BTREE) trên `role` - Tối ưu admin queries
+
+**Row Level Security (RLS)**:
+- ✅ RLS đã được bật
+- Policy: "Users can view their own profile" - User chỉ thấy profile của chính họ
+- Policy: "Admins can view all profiles" - Admin thấy tất cả (sử dụng function `is_admin_user()`)
+- Policy: "Users can update their own profile" - User chỉ update profile của chính họ (không được đổi role)
+- Policy: "Admins can update all profiles" - Admin update tất cả
+
+**Trigger tự động**:
+- `handle_new_user()`: Tự động tạo profile khi user mới đăng ký
+- Trigger: `on_auth_user_created` trên `auth.users`
+
+**Function hỗ trợ**:
+- `is_admin_user()`: Function để check admin role (dùng trong policies, tránh circular dependency)
 
 **Cách kiểm tra Premium**:
 - Sử dụng function `isPremium()` từ `lib/membership.ts`
-- Kiểm tra `user.user_metadata?.is_premium === true`
+- Query từ bảng `user_profiles`: `SELECT is_premium FROM user_profiles WHERE id = user.id`
 
 **Cách kiểm tra Role**:
 - Sử dụng function `isAdmin()` từ `lib/membership.ts`
-- Kiểm tra `user.user_metadata?.role === 'admin'`
-- Default role là `'user'` nếu không có trong metadata
+- Query từ bảng `user_profiles`: `SELECT role FROM user_profiles WHERE id = user.id`
+- Default role là `'user'` nếu không tìm thấy profile
 
 **⚠️ QUAN TRỌNG**: 
-- Premium status được cập nhật tự động từ Lemon Squeezy webhook
-- Không nên thay đổi `is_premium` trực tiếp trong code, chỉ thông qua webhook
-- Role phải được set thủ công qua Supabase Dashboard hoặc Admin API (xem `SQL_REQUIREMENTS.md`)
+- **Bảng `user_profiles` là Single Source of Truth** cho membership và role
+- **KHÔNG** còn dùng `user_metadata` cho role và is_premium
+- Premium status được cập nhật tự động từ Lemon Squeezy webhook (update vào `user_profiles`)
+- Role phải được set thủ công qua SQL (xem `SQL_REQUIREMENTS.md`)
+- Trigger tự động tạo profile khi user mới đăng nhập
 
 ---
 
@@ -155,7 +186,7 @@ Partner Relationship Management/
 │   │   └── helpers.ts            # ⚠️ DEPRECATED: Dùng lib/membership.ts thay thế
 │   ├── config/                   # Configuration
 │   │   └── lemon-squeezy.ts      # Lemon Squeezy checkout URL
-│   ├── membership.ts             # ✅ Membership & Role management
+│   ├── membership.ts             # ✅ Membership & Role management (Single Source of Truth)
 │   ├── profiles/                 # Profile management
 │   │   ├── actions.ts            # Server actions: addProfile, deleteProfile, getProfiles
 │   │   ├── admin-actions.ts     # ✅ Admin actions: getAllProfiles (Admin only)
@@ -173,6 +204,7 @@ Partner Relationship Management/
 │
 ├── middleware.ts                # Next.js middleware (Supabase session refresh)
 ├── package.json                  # Dependencies
+├── SQL_REQUIREMENTS.md           # ✅ SQL commands cần chạy thủ công
 ├── tailwind.config.ts            # Tailwind configuration
 ├── tsconfig.json                 # TypeScript configuration
 └── .env.local                    # Environment variables (⚠️ KHÔNG commit lên Git)
@@ -191,6 +223,7 @@ Partner Relationship Management/
   - ✅ Email verification **ĐÃ TẮT** (user đăng nhập ngay sau sign up)
   - ✅ Tự động redirect về `/` sau khi thành công
   - ✅ Revalidate path để cập nhật UI
+  - ✅ Trigger tự động tạo profile trong `user_profiles` với `role = 'user'` và `is_premium = false`
 
 - `signIn(email, password)`: Đăng nhập
   - ✅ Redirect về `/` sau khi thành công
@@ -221,18 +254,40 @@ Partner Relationship Management/
 
 ## 💎 PREMIUM / MEMBERSHIP LOGIC
 
-### 1. Kiểm tra Premium Status
+### 1. Membership Management
 
-**File**: `lib/auth/helpers.ts`
+**File**: `lib/membership.ts` ✅ **Single Source of Truth**
 
-```typescript
-export async function isPremium(): Promise<boolean>
-```
+**⚠️ QUAN TRỌNG**: Tất cả membership và role data được lấy từ bảng `user_profiles`, **KHÔNG** còn dùng `user_metadata`.
 
-**Logic**:
-1. Lấy user từ Supabase Auth
-2. Kiểm tra `user.user_metadata?.is_premium === true`
-3. Mặc định trả về `false` nếu không có user hoặc không phải premium
+**Functions chính**:
+
+#### `isPremium(): Promise<boolean>`
+- Kiểm tra xem user có phải Premium không
+- Logic: Query từ `user_profiles.is_premium` (KHÔNG dùng metadata)
+
+#### `isAdmin(): Promise<boolean>`
+- Kiểm tra xem user có phải Admin không
+- Logic: Query từ `user_profiles.role === 'admin'` (KHÔNG dùng metadata)
+
+#### `getUserRole(): Promise<'admin' | 'user' | null>`
+- Lấy role của user hiện tại
+- Default: `'user'` nếu không tìm thấy profile
+
+#### `canSelectCompetitorCategory(): Promise<boolean>`
+- Free users: KHÔNG được chọn 'Competitor' (chỉ 'General')
+- Premium users: Được chọn tất cả categories
+
+#### `canAddProfile(currentProfileCount): Promise<{allowed: boolean, reason?: string}>`
+- Free users: Tối đa 5 profiles
+- Premium users: Unlimited
+
+#### `canUseNotes(): Promise<boolean>`
+- Free users: KHÔNG
+- Premium users: CÓ
+
+#### `getMembershipInfo(): Promise<MembershipInfo>`
+- Lấy thông tin membership đầy đủ của user
 
 ### 2. Premium Features
 
@@ -253,19 +308,21 @@ export async function isPremium(): Promise<boolean>
 3. Lemon Squeezy gửi webhook `order_created` đến `/api/webhook/lemon-squeezy`
 4. Webhook handler:
    - Verify signature (HMAC SHA256)
-   - Tìm user theo email từ order
-   - Cập nhật `user_metadata.is_premium = true` bằng Admin Client
-   - Lưu `premium_activated_at` và `lemon_squeezy_order_id`
+   - Tìm user theo email từ `user_profiles` (tối ưu hơn list all users)
+   - **Cập nhật `user_profiles.is_premium = true`** bằng Admin Client (KHÔNG còn dùng metadata)
+   - Update `updated_at` timestamp
 
 **Environment Variables**:
 - `LEMON_SQUEEZY_WEBHOOK_SECRET`: Secret để verify webhook signature
-- `SUPABASE_SERVICE_ROLE_KEY`: Admin key để update user metadata
+- `SUPABASE_SERVICE_ROLE_KEY`: Admin key để update user_profiles (bypass RLS)
 
 ---
 
 ## 🛠️ SERVER ACTIONS
 
 ### 1. Profile Actions (`lib/profiles/actions.ts`)
+
+**User Actions** (cho regular users):
 
 #### `addProfile(url, title, notes?, category?)`
 
@@ -379,6 +436,27 @@ const result = await addProfile({
 - Floating Add Button (góc phải dưới) → mở Modal
 - Upgrade Button (nếu chưa Premium)
 
+### 2.5. Sidebar (`components/Sidebar.tsx`) ✅ MỚI
+
+**Mục đích**: Sidebar navigation cho desktop (lg breakpoint trở lên)
+
+**Features**:
+- Logo "Partner Center" với Target icon
+- Navigation links: Dashboard, Settings, Admin (nếu là admin)
+- Premium badge (nếu Premium)
+- Sign Out button
+- Fixed position, chỉ hiển thị trên desktop (lg+)
+
+### 2.6. Header (`components/Header.tsx`) ✅ MỚI
+
+**Mục đích**: Header navigation cho mobile và desktop
+
+**Features**:
+- Logo "Partner Center"
+- Navigation links: Dashboard, Settings, Admin (nếu là admin)
+- Mobile menu với hamburger icon
+- Responsive: Sidebar trên desktop, Header trên mobile
+
 ### 3. Add Profile Modal (`components/AddProfileModal.tsx`)
 
 **Mục đích**: Modal form để thêm profile mới
@@ -440,7 +518,7 @@ const result = await addProfile({
 - Hover effects: scale, shadow, border color change
 - Click to open URL in new tab
 
-### 5. Profile Grid (`components/ProfileGrid.tsx`)
+### 6. Profile Grid (`components/ProfileGrid.tsx`)
 
 **Mục đích**: Grid layout cho danh sách profiles
 
@@ -476,9 +554,9 @@ const result = await addProfile({
 1. Verify signature
 2. Parse payload (JSON)
 3. Kiểm tra event type: `order_created`
-4. Tìm user theo email từ order
-5. Cập nhật `user_metadata.is_premium = true` bằng Admin Client
-6. Lưu `premium_activated_at` và `lemon_squeezy_order_id`
+4. Tìm user theo email từ `user_profiles` (tối ưu hơn list all users)
+5. **Cập nhật `user_profiles.is_premium = true`** bằng Admin Client (KHÔNG còn dùng metadata)
+6. Update `updated_at` timestamp
 
 **Return**: `200 OK` hoặc `400/401/500` với error message
 
@@ -508,7 +586,7 @@ const result = await addProfile({
 
 **Access Control**:
 1. ✅ Kiểm tra authentication (phải có user)
-2. ✅ Kiểm tra role: `user.user_metadata?.role === 'admin'`
+2. ✅ Kiểm tra role: Query từ `user_profiles.role === 'admin'` (KHÔNG dùng metadata)
 3. ✅ Nếu không phải admin → redirect về `/`
 4. ✅ Nếu là admin → hiển thị Admin Dashboard
 
@@ -519,8 +597,9 @@ const result = await addProfile({
 - Xem chi tiết từng profile (user_id, created_at, etc.)
 
 **⚠️ QUAN TRỌNG**: 
-- Admin role phải được set thủ công qua Supabase Dashboard (xem `SQL_REQUIREMENTS.md`)
-- Không thể set admin role qua code thông thường (phải dùng Admin API hoặc Dashboard)
+- Admin role được lưu trong bảng `user_profiles.role` (KHÔNG dùng metadata)
+- Role phải được set thủ công qua SQL (xem `SQL_REQUIREMENTS.md`)
+- Không thể set admin role qua code thông thường (phải dùng SQL hoặc Admin API với Service Role Key)
 
 ---
 
@@ -611,14 +690,17 @@ LEMON_SQUEEZY_WEBHOOK_SECRET=your-webhook-secret
 
 ✅ **PHẢI**:
 - Sử dụng đúng tên bảng: `profiles_tracked` (không phải `profiles` hay `tracked_profiles`)
+- Sử dụng đúng tên bảng: `user_profiles` (không phải `users` hay `user_profile`)
 - Sử dụng đúng tên các trường như đã định nghĩa trong schema
 - Luôn kiểm tra `user_id` khi query (RLS sẽ tự động enforce, nhưng nên explicit)
 - Sử dụng `normalizeUrl()` trước khi lưu URL vào database
+- **Query membership và role từ `user_profiles`** (KHÔNG dùng `user_metadata`)
 
 ❌ **KHÔNG**:
-- Tự ý thêm cột mới vào bảng `profiles_tracked` trừ khi có yêu cầu rõ ràng
+- Tự ý thêm cột mới vào bảng `profiles_tracked` hoặc `user_profiles` trừ khi có yêu cầu rõ ràng
 - Thay đổi tên bảng hoặc trường đã có
-- Bypass RLS bằng cách dùng Service Role Key trừ khi thực sự cần (như webhook)
+- Bypass RLS bằng cách dùng Service Role Key trừ khi thực sự cần (như webhook, admin actions)
+- Dùng `user_metadata` cho role và is_premium (phải dùng `user_profiles`)
 
 ### 2. Security Rules
 
@@ -627,11 +709,13 @@ LEMON_SQUEEZY_WEBHOOK_SECRET=your-webhook-secret
 - Sử dụng Server Actions (`"use server"`) cho mutations
 - Verify webhook signatures trước khi xử lý
 - Sử dụng `createClient()` từ `lib/supabase/server.ts` cho server-side
+- Kiểm tra `isAdmin()` trước khi cho phép truy cập admin routes
 
 ❌ **KHÔNG**:
 - Expose Service Role Key trong client-side code
 - Bypass authentication checks
 - Trust user input mà không validate
+- Cho phép non-admin users truy cập admin routes
 
 ### 3. UI/UX Rules
 
@@ -674,12 +758,27 @@ LEMON_SQUEEZY_WEBHOOK_SECRET=your-webhook-secret
 - Kiểm tra `isPremium()` trước khi enable Premium features
 - Disable Category select và Notes textarea cho Free users
 - Hiển thị upgrade prompt khi Free user đạt limit (5 profiles)
-- Validate Premium status từ `user_metadata.is_premium`
+- Validate Premium status từ `user_profiles.is_premium` (KHÔNG dùng metadata)
+- Free users chỉ được chọn "General", không được chọn "Competitor"
 
 ❌ **KHÔNG**:
-- Cho phép Free user chọn category khác "General"
+- Cho phép Free user chọn category khác "General" (đặc biệt là "Competitor")
 - Cho phép Free user thêm notes
 - Cho phép Free user thêm quá 5 profiles
+- Dùng `user_metadata` để check premium hoặc role
+
+### 5.5. Role-Based Access Control
+
+✅ **PHẢI**:
+- Kiểm tra `isAdmin()` trước khi cho phép truy cập `/admin`
+- Sử dụng Admin Client chỉ trong admin actions
+- Verify role từ `user_profiles.role === 'admin'` (KHÔNG dùng metadata)
+
+❌ **KHÔNG**:
+- Cho phép non-admin users truy cập admin routes
+- Expose Admin Client ra client-side
+- Hardcode admin emails trong code
+- Dùng `user_metadata.role` để check admin
 
 ### 6. Code Organization
 
@@ -740,7 +839,7 @@ và sửa lại code cho đúng với schema đã định nghĩa.
 **Khi nào cần cập nhật SYSTEM_CONTEXT.md**:
 
 1. ✅ Thêm bảng mới vào database
-2. ✅ Thêm cột mới vào bảng `profiles_tracked` (hoặc bảng khác)
+2. ✅ Thêm cột mới vào bảng `profiles_tracked` hoặc `user_profiles` (hoặc bảng khác)
 3. ✅ Thêm API route mới
 4. ✅ Thêm component mới quan trọng
 5. ✅ Thay đổi logic Premium/Membership
@@ -774,14 +873,15 @@ Trước khi commit code, đảm bảo:
 - [ ] Sử dụng đúng tên bảng và trường từ schema
 - [ ] Đã kiểm tra authentication (nếu cần)
 - [ ] Đã kiểm tra Premium logic (nếu liên quan)
+- [ ] Đã kiểm tra Admin role (nếu liên quan)
 - [ ] Đã thêm loading state và error handling
 - [ ] Đã test responsive design
 - [ ] Đã cập nhật SYSTEM_CONTEXT.md (nếu có thay đổi cấu trúc)
 - [ ] Code không có linter errors
+- [ ] **KHÔNG dùng `user_metadata` cho role và is_premium** (phải dùng `user_profiles`)
 
 ---
 
 **📅 Last Updated**: 2024-12-19
-**Version**: 1.0.0
+**Version**: 2.0.0 (Updated to use user_profiles table as Single Source of Truth)
 **Maintained by**: Development Team
-

@@ -1,6 +1,6 @@
 # 📋 SQL REQUIREMENTS - Các lệnh SQL cần thực hiện thủ công
 
-> **Mục đích**: File này chứa các lệnh SQL cần được thực hiện thủ công trong Supabase SQL Editor vì không thể tự động hóa qua code.
+> **Mục đích**: File này chứa các lệnh SQL cần được thực hiện thủ công trong Supabase SQL Editor để tạo bảng `user_profiles` và thiết lập trigger tự động.
 
 ---
 
@@ -13,131 +13,145 @@
 
 ---
 
-## 1. Thêm Role vào User Metadata (Bắt buộc)
+## 1. Tạo bảng `user_profiles` (Bắt buộc)
 
 ### Mô tả
-Thêm cột `role` vào `user_metadata` của Supabase Auth. Role mặc định là `'user'`, chỉ admin mới có `role === 'admin'`.
+Tạo bảng `user_profiles` để lưu trữ thông tin membership và role của user. Đây là **Single Source of Truth** cho membership và role, thay thế hoàn toàn `user_metadata`.
 
 ### Lệnh SQL
 
-**Lưu ý**: Supabase Auth không có bảng `auth.users` trực tiếp để query. Thay vào đó, role sẽ được lưu trong `user_metadata` và được quản lý qua Admin API.
-
-**Cách thực hiện**:
-
-1. **Option 1: Thêm role cho user hiện tại thủ công** (Khuyến nghị cho development)
-   - Vào Supabase Dashboard → Authentication → Users
-   - Chọn user bạn muốn set làm admin
-   - Click "Edit User"
-   - Trong phần "User Metadata", thêm:
-     ```json
-     {
-       "role": "admin"
-     }
-     ```
-   - Hoặc merge với metadata hiện có:
-     ```json
-     {
-       "is_premium": true,
-       "role": "admin"
-     }
-     ```
-
-2. **Option 2: Sử dụng SQL Function** (Nếu cần tự động hóa)
-   
-   Tạo function để set role cho user (chạy trong Supabase SQL Editor):
-   
-   ```sql
-   -- Function để set role cho user (chỉ dùng với Service Role Key)
-   -- Lưu ý: Function này chỉ có thể được gọi từ server-side với Admin Client
-   -- Không thể gọi trực tiếp từ SQL Editor vì cần Admin API
-   ```
-
-   **Thực tế**: Không thể update `user_metadata` trực tiếp qua SQL. Phải dùng Admin API hoặc Supabase Dashboard.
-
-### Cách kiểm tra
-
-Sau khi thêm role, kiểm tra bằng cách:
-
-1. Đăng nhập với user đó
-2. Truy cập `/admin` - nếu có role `admin`, sẽ thấy trang admin
-3. Nếu không có role `admin`, sẽ bị redirect hoặc hiển thị "Access Denied"
-
-### Migration Script (Cho tương lai)
-
-Nếu cần set role mặc định cho tất cả users hiện có:
-
 ```sql
--- Lưu ý: Script này KHÔNG thể chạy trực tiếp vì user_metadata không thể update qua SQL
--- Phải dùng Admin API từ server-side code
-
--- Thay vào đó, tạo một script Node.js để chạy một lần:
--- node scripts/set-default-roles.js
-```
-
-**Script Node.js mẫu** (tạo file `scripts/set-default-roles.js`):
-
-```javascript
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+-- 1. Tạo bảng user_profiles
+CREATE TABLE IF NOT EXISTS public.user_profiles (
+  id uuid REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+  email text,
+  role text DEFAULT 'user', -- 'user' hoặc 'admin'
+  is_premium boolean DEFAULT false,
+  updated_at timestamp with time zone DEFAULT now()
 );
 
-async function setDefaultRoles() {
-  const { data: { users }, error } = await supabase.auth.admin.listUsers();
-  
-  if (error) {
-    console.error('Error fetching users:', error);
-    return;
-  }
+-- 2. Tạo index cho email để tối ưu query
+CREATE INDEX IF NOT EXISTS idx_user_profiles_email ON public.user_profiles(email);
 
-  for (const user of users) {
-    // Chỉ set role nếu chưa có
-    if (!user.user_metadata?.role) {
-      const { error: updateError } = await supabase.auth.admin.updateUserById(
-        user.id,
-        {
-          user_metadata: {
-            ...user.user_metadata,
-            role: 'user' // Default role
-          }
-        }
-      );
+-- 3. Tạo index cho role để tối ưu admin queries
+CREATE INDEX IF NOT EXISTS idx_user_profiles_role ON public.user_profiles(role);
 
-      if (updateError) {
-        console.error(`Error updating user ${user.id}:`, updateError);
-      } else {
-        console.log(`Set role 'user' for ${user.email}`);
-      }
-    }
-  }
-}
+-- 4. Bật Row Level Security (RLS)
+ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
 
-setDefaultRoles();
+-- 5. Policy: User chỉ thấy profile của chính họ
+CREATE POLICY "Users can view their own profile" ON public.user_profiles
+FOR SELECT USING (auth.uid() = id);
+
+-- 5b. Function để check admin role (tránh circular dependency trong policy)
+CREATE OR REPLACE FUNCTION public.is_admin_user()
+RETURNS boolean AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.user_profiles
+    WHERE id = auth.uid() AND role = 'admin'
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 5c. Policy: Admin thấy tất cả profiles
+CREATE POLICY "Admins can view all profiles" ON public.user_profiles
+FOR SELECT USING (public.is_admin_user());
+
+-- 6. Policy: User chỉ update profile của chính họ (nhưng không được update role)
+CREATE POLICY "Users can update their own profile" ON public.user_profiles
+FOR UPDATE 
+USING (auth.uid() = id)
+WITH CHECK (
+  auth.uid() = id 
+  AND role = (SELECT role FROM public.user_profiles WHERE id = auth.uid())
+);
+
+-- 6b. Policy: Admin có thể update tất cả profiles
+CREATE POLICY "Admins can update all profiles" ON public.user_profiles
+FOR UPDATE USING (public.is_admin_user());
+
+-- 7. Trigger tự động tạo profile khi có user mới đăng ký
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.user_profiles (id, email, role, is_premium)
+  VALUES (new.id, new.email, 'user', false)
+  ON CONFLICT (id) DO NOTHING;
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 8. Xóa trigger cũ nếu có và tạo mới
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- 9. Migration: Tạo profiles cho các users hiện có (nếu chưa có)
+-- Lưu ý: Migration này sẽ migrate is_premium từ user_metadata (nếu có)
+INSERT INTO public.user_profiles (id, email, role, is_premium)
+SELECT 
+  id,
+  email,
+  'user' as role,
+  COALESCE((raw_user_meta_data->>'is_premium')::boolean, false) as is_premium
+FROM auth.users
+WHERE id NOT IN (SELECT id FROM public.user_profiles)
+ON CONFLICT (id) DO NOTHING;
 ```
+
+### Giải thích
+
+1. **Bảng `user_profiles`**:
+   - `id`: Primary key, reference đến `auth.users(id)`
+   - `email`: Email của user (để dễ query)
+   - `role`: 'user' hoặc 'admin' (default: 'user')
+   - `is_premium`: Premium status (default: false)
+   - `updated_at`: Timestamp tự động cập nhật
+
+2. **Indexes**: Tối ưu query theo email và role
+
+3. **RLS Policies**:
+   - User chỉ thấy/update profile của chính họ
+   - Admin thấy/update tất cả profiles (sử dụng function `is_admin_user()` để tránh circular dependency)
+
+4. **Trigger**: Tự động tạo profile khi user mới đăng ký
+
+5. **Migration**: Tạo profiles cho users hiện có và migrate `is_premium` từ metadata (nếu có)
+
+### ⚠️ Lưu ý về Policy
+
+Policy "Admins can view all profiles" sử dụng function `is_admin_user()` để tránh circular dependency. Function này được đánh dấu `SECURITY DEFINER` để có quyền đọc `user_profiles` trong policy check.
 
 ---
 
-## 2. Tạo Admin User (Thủ công)
+## 2. Set Admin Role cho User
 
 ### Cách thực hiện
 
-1. Vào Supabase Dashboard → Authentication → Users
-2. Tìm user bạn muốn set làm admin
-3. Click "Edit User"
-4. Trong "User Metadata", thêm hoặc cập nhật:
-   ```json
-   {
-     "role": "admin"
-   }
-   ```
+Sau khi chạy SQL script trên, set admin role cho user:
 
-### Lưu ý
+```sql
+-- Set admin role cho user (thay YOUR_USER_ID bằng UUID của user)
+UPDATE public.user_profiles
+SET role = 'admin'
+WHERE id = 'YOUR_USER_ID'::uuid;
 
-- Chỉ nên có 1-2 admin users trong development
-- Trong production, nên có process rõ ràng để quản lý admin users
-- Không nên hardcode admin emails trong code
+-- Hoặc set theo email
+UPDATE public.user_profiles
+SET role = 'admin'
+WHERE email = 'admin@example.com';
+```
+
+### Cách lấy User ID
+
+```sql
+-- Xem danh sách users và emails
+SELECT id, email, role, is_premium 
+FROM public.user_profiles
+ORDER BY updated_at DESC;
+```
 
 ---
 
@@ -145,22 +159,32 @@ setDefaultRoles();
 
 Sau khi hoàn thành:
 
-- [ ] Đã thêm `role: "admin"` vào user metadata của ít nhất 1 user (qua Supabase Dashboard)
+- [ ] Đã chạy SQL script tạo bảng `user_profiles`
+- [ ] Đã verify trigger hoạt động (tạo user mới → check có profile tự động)
+- [ ] Đã set `role = 'admin'` cho ít nhất 1 user
 - [ ] Đã test truy cập `/admin` với user admin → thành công
 - [ ] Đã test truy cập `/admin` với user thường → bị chặn/redirect
-- [ ] Đã verify role được lưu đúng trong `user_metadata`
+- [ ] Đã verify migration: Users hiện có đã có profile trong `user_profiles`
 
 ---
 
-## 📝 GHI CHÚ
+## 📝 GHI CHÚ QUAN TRỌNG
 
-- Role được lưu trong `user_metadata` của Supabase Auth
-- Không thể query/update `user_metadata` trực tiếp qua SQL
-- Phải dùng Admin API hoặc Supabase Dashboard
-- Code sẽ check `user.user_metadata?.role === 'admin'` để phân quyền
+- **Bảng `user_profiles` là Single Source of Truth** cho membership và role
+- **KHÔNG** còn dùng `user_metadata` cho role và is_premium
+- Code sẽ query từ `user_profiles` thay vì `user_metadata`
+- Webhook Lemon Squeezy sẽ update `user_profiles.is_premium` thay vì metadata
+- Function `is_admin_user()` được dùng trong policies để tránh circular dependency
+
+---
+
+## 🔄 Migration từ Metadata sang user_profiles
+
+Nếu bạn đã có data trong `user_metadata`, script migration ở bước 9 sẽ tự động migrate `is_premium`. 
+
+**Lưu ý**: Role phải được set thủ công vì không có trong metadata cũ.
 
 ---
 
 **📅 Last Updated**: 2024-12-19
-**Version**: 1.0.0
-
+**Version**: 2.0.0 (Updated to use user_profiles table)

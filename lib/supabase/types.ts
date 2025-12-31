@@ -44,6 +44,29 @@ export interface Database {
           created_at?: string;
         };
       };
+      user_profiles: {
+        Row: {
+          id: string;
+          email: string | null;
+          role: string;
+          is_premium: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          email?: string | null;
+          role?: string;
+          is_premium?: boolean;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          email?: string | null;
+          role?: string;
+          is_premium?: boolean;
+          updated_at?: string;
+        };
+      };
     }
     Views: {
       [_ in never]: never
