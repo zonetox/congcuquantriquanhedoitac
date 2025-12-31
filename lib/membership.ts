@@ -31,8 +31,12 @@ async function getUserProfile(): Promise<UserProfile | null> {
   } = await supabase.auth.getUser();
 
   if (userError || !user) {
+    console.log("[getUserProfile] No user found:", userError);
     return null;
   }
+
+  console.log("[getUserProfile] User ID:", user.id);
+  console.log("[getUserProfile] User Email:", user.email);
 
   // Query từ bảng user_profiles
   const { data: profile, error } = await supabase
@@ -41,7 +45,23 @@ async function getUserProfile(): Promise<UserProfile | null> {
     .eq("id", user.id)
     .single();
 
-  if (error || !profile) {
+  if (error) {
+    console.error("[getUserProfile] Error querying user_profiles:", {
+      error: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+      userId: user.id,
+    });
+    
+    // Nếu lỗi là "PGRST116" (no rows returned), có nghĩa là profile chưa tồn tại
+    // Nếu lỗi khác (ví dụ RLS policy chặn), vẫn trả về default nhưng log cảnh báo
+    if (error.code === "PGRST116") {
+      console.log("[getUserProfile] Profile not found (PGRST116), returning default");
+    } else {
+      console.warn("[getUserProfile] Query error (possibly RLS issue), returning default");
+    }
+    
     // Nếu không tìm thấy profile, trả về default
     // (Có thể xảy ra nếu trigger chưa chạy hoặc user mới tạo)
     return {
@@ -52,6 +72,24 @@ async function getUserProfile(): Promise<UserProfile | null> {
       updated_at: new Date().toISOString(),
     };
   }
+
+  if (!profile) {
+    console.log("[getUserProfile] Profile not found (null), returning default");
+    return {
+      id: user.id,
+      email: user.email || null,
+      role: "user",
+      is_premium: false,
+      updated_at: new Date().toISOString(),
+    };
+  }
+
+  console.log("[getUserProfile] Profile found:", {
+    id: profile.id,
+    email: profile.email,
+    role: profile.role,
+    is_premium: profile.is_premium,
+  });
 
   return profile as UserProfile;
 }
@@ -69,7 +107,14 @@ export async function isPremium(): Promise<boolean> {
  */
 export async function isAdmin(): Promise<boolean> {
   const profile = await getUserProfile();
-  return profile?.role === "admin";
+  const isAdminResult = profile?.role === "admin";
+  console.log("[isAdmin] Result:", {
+    userId: profile?.id,
+    email: profile?.email,
+    role: profile?.role,
+    isAdmin: isAdminResult,
+  });
+  return isAdminResult;
 }
 
 /**

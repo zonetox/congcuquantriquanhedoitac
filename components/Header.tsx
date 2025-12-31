@@ -10,6 +10,7 @@ interface HeaderProps {
   userEmail?: string;
   isPremium?: boolean;
   isAdmin?: boolean;
+  currentProfileCount?: number;
 }
 
 const navigation = [
@@ -17,9 +18,10 @@ const navigation = [
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
-export function Header({ userEmail, isPremium, isAdmin }: HeaderProps) {
+export function Header({ userEmail, isPremium, isAdmin, currentProfileCount = 0 }: HeaderProps) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const MAX_FREE_PROFILES = 5;
 
   return (
     <div>
@@ -116,20 +118,36 @@ export function Header({ userEmail, isPremium, isAdmin }: HeaderProps) {
             {navigation.map((item) => {
               const isActive = pathname === item.href;
               return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={cn(
-                    "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors",
-                    isActive
-                      ? "bg-gradient-to-r from-emerald-600 to-blue-600 text-white"
-                      : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-gray-700"
+                <div key={item.name}>
+                  <Link
+                    href={item.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={cn(
+                      "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors",
+                      isActive
+                        ? "bg-gradient-to-r from-emerald-600 to-blue-600 text-white"
+                        : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-gray-700"
+                    )}
+                  >
+                    <item.icon className="w-5 h-5" />
+                    <span className="font-medium">{item.name}</span>
+                  </Link>
+                  {/* Usage Indicator - chỉ hiển thị dưới Dashboard và khi không phải Premium */}
+                  {item.name === "Dashboard" && !isPremium && (
+                    <div className="px-4 py-2">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Usage: <span className={cn(
+                          "font-semibold",
+                          currentProfileCount >= MAX_FREE_PROFILES 
+                            ? "text-red-600 dark:text-red-400" 
+                            : "text-slate-700 dark:text-slate-300"
+                        )}>
+                          {currentProfileCount}/{MAX_FREE_PROFILES} profiles
+                        </span>
+                      </p>
+                    </div>
                   )}
-                >
-                  <item.icon className="w-5 h-5" />
-                  <span className="font-medium">{item.name}</span>
-                </Link>
+                </div>
               );
             })}
             {isAdmin && (

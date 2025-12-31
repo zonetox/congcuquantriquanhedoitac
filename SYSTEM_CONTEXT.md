@@ -433,8 +433,12 @@ const result = await addProfile({
 **Features**:
 - Header với số lượng profiles
 - Profile Grid (responsive)
-- Floating Add Button (góc phải dưới) → mở Modal
+- **Floating Add Button** (góc phải dưới, fixed position) → mở `AddProfileModal`
+  - Icon: Plus với rotate animation khi hover
+  - Gradient background: emerald-600 to blue-600
+  - Z-index: 40 (trên các elements khác)
 - Upgrade Button (nếu chưa Premium)
+- **Modal**: Sử dụng `AddProfileModal` component (Radix UI Dialog)
 
 ### 2.5. Sidebar (`components/Sidebar.tsx`) ✅ MỚI
 
@@ -443,9 +447,13 @@ const result = await addProfile({
 **Features**:
 - Logo "Partner Center" với Target icon
 - Navigation links: Dashboard, Settings, Admin (nếu là admin)
+- **Usage Indicator**: Hiển thị "Usage: X/5 profiles" dưới menu Dashboard (chỉ khi không Premium)
+  - Màu đỏ khi đạt giới hạn (4/5 hoặc 5/5)
+  - Props: `currentProfileCount` (từ parent component)
 - Premium badge (nếu Premium)
 - Sign Out button
 - Fixed position, chỉ hiển thị trên desktop (lg+)
+- **Responsive**: Ẩn trên mobile (`hidden lg:flex`), dùng Header mobile menu thay thế
 
 ### 2.6. Header (`components/Header.tsx`) ✅ MỚI
 
@@ -454,6 +462,9 @@ const result = await addProfile({
 **Features**:
 - Logo "Partner Center"
 - Navigation links: Dashboard, Settings, Admin (nếu là admin)
+- **Usage Indicator**: Hiển thị "Usage: X/5 profiles" trong mobile menu dưới Dashboard (chỉ khi không Premium)
+  - Màu đỏ khi đạt giới hạn (4/5 hoặc 5/5)
+  - Props: `currentProfileCount` (từ parent component)
 - Mobile menu với hamburger icon
 - Responsive: Sidebar trên desktop, Header trên mobile
 
@@ -511,7 +522,11 @@ const result = await addProfile({
 - Title (bold, center)
 - Notes (faint, italic, below title)
 - Domain (below notes, with border-top)
-- Category badge (top-left, nếu không phải "General")
+- **Category badge** (top-left, nếu không phải "General"):
+  - **Competitor**: Red (`bg-red-100`, `text-red-700`, `border-red-200`)
+  - **Partner**: Green (`bg-emerald-100`, `text-emerald-700`, `border-emerald-200`)
+  - **Customer**: Blue (`bg-blue-100`, `text-blue-700`, `border-blue-200`)
+  - **Other**: Slate (màu mặc định)
 - AI Update icon (Radio icon, top-left, gray nếu `has_new_update = false`)
 - Delete button (top-right, hiện khi hover)
 - Premium crown icon (top-right, nếu user Premium)
@@ -883,5 +898,21 @@ Trước khi commit code, đảm bảo:
 ---
 
 **📅 Last Updated**: 2024-12-19
-**Version**: 2.0.0 (Updated to use user_profiles table as Single Source of Truth)
+**Version**: 2.1.0 (UI Improvements: Category Badge Colors, Usage Indicator, Mobile Responsive)
 **Maintained by**: Development Team
+
+**🔄 Recent Updates** (2024-12-19):
+- ✅ **Category Badge Colors**: Thêm màu phân biệt cho category badges trong ProfileCard
+  - Competitor: Red (`bg-red-100`, `text-red-700`)
+  - Partner: Green (`bg-emerald-100`, `text-emerald-700`)
+  - Customer: Blue (`bg-blue-100`, `text-blue-700`)
+  - Other: Slate (màu mặc định)
+- ✅ **Usage Indicator**: Thêm "Usage: X/5 profiles" trong Sidebar và Header mobile menu
+  - Chỉ hiển thị khi không Premium
+  - Màu đỏ khi đạt giới hạn (4/5 hoặc 5/5)
+  - Props: `currentProfileCount` được pass từ parent components
+- ✅ **Responsive Mobile**: 
+  - ProfileGrid: `grid-cols-1` trên mobile → hiển thị 1 cột
+  - Sidebar: `hidden lg:flex` → ẩn trên mobile, dùng Header hamburger menu
+  - Header mobile menu: Có usage indicator và đầy đủ navigation links
+- ✅ **Modal Implementation**: Xác nhận DashboardContent đã sử dụng AddProfileModal với floating button

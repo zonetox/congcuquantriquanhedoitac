@@ -27,11 +27,13 @@ export default async function Home() {
         userEmail={user.email}
         isPremium={userIsPremium}
         isAdmin={userIsAdmin}
+        currentProfileCount={profiles?.length || 0}
       />
       <Header
         userEmail={user.email}
         isPremium={userIsPremium}
         isAdmin={userIsAdmin}
+        currentProfileCount={profiles?.length || 0}
       />
       <div className="lg:pl-64">
         <div className="lg:pt-0">

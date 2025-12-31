@@ -57,13 +57,23 @@ export function ProfileCard({ profile, onDelete, isDeleting = false, isPremium =
       </button>
 
       {/* Category Badge */}
-      {profile.category && profile.category !== "General" && (
-        <div className="absolute top-3 left-3 z-10">
-          <span className="px-3 py-1 text-xs font-semibold rounded-full bg-gradient-to-r from-emerald-100 to-blue-100 dark:from-emerald-900/40 dark:to-blue-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-            {profile.category}
-          </span>
-        </div>
-      )}
+      {profile.category && profile.category !== "General" && (() => {
+        const categoryColors = {
+          Competitor: "bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800",
+          Partner: "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800",
+          Customer: "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800",
+          Other: "bg-slate-100 dark:bg-slate-700/50 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-600",
+        };
+        const colorClass = categoryColors[profile.category as keyof typeof categoryColors] || categoryColors.Other;
+        
+        return (
+          <div className="absolute top-3 left-3 z-10">
+            <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${colorClass}`}>
+              {profile.category}
+            </span>
+          </div>
+        );
+      })()}
 
       {/* AI Update Icon - Premium Feature Teaser */}
       <div className={`absolute ${profile.category && profile.category !== "General" ? "top-12 left-3" : "top-3 left-3"} z-10`}>
