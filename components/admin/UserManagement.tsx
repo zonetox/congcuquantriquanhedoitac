@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Edit2, Trash2, Save, X, Crown, User } from "lucide-react";
+import { Edit2, Trash2, Save, X, Crown, User, Shield } from "lucide-react";
 import { getAllUsers, updateUser, deleteUser } from "@/lib/admin/actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
