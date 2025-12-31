@@ -115,12 +115,12 @@ export function AddProfileModal({
     setLoading(true);
 
     try {
-      const result = await addProfile({
-        url: normalizedUrl,
-        title: title.trim(),
-        notes: notes.trim() || null,
-        category: isUserPremium ? (category || "General") : "General",
-      });
+      const result = await addProfile(
+        normalizedUrl,
+        title.trim(),
+        notes.trim() || undefined,
+        isUserPremium ? (category || "General") : "General"
+      );
 
       if (result.error) {
         setError(result.error);
@@ -142,7 +142,7 @@ export function AddProfileModal({
   };
 
   const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
-    const pastedText = e.clipboardData.getText();
+    const pastedText = e.clipboardData.getData("text");
     if (pastedText) {
       const normalized = normalizeUrl(pastedText);
       setUrl(normalized);
