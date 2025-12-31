@@ -265,6 +265,10 @@ Partner Relationship Management/
 │   │   ├── actions.ts            # Server actions: addProfile, deleteProfile, getProfiles
 │   │   ├── admin-actions.ts     # ✅ Admin actions: getAllProfiles (Admin only)
 │   │   └── types.ts              # TypeScript types cho Profile
+│   ├── categories/               # ✅ Category management
+│   │   └── actions.ts            # Server actions: getCategories, createCategory, updateCategory, deleteCategory
+│   ├── admin/                    # ✅ Admin management
+│   │   └── actions.ts            # Admin actions: getAllUsers, updateUser, deleteUser, updateProfile, deleteProfileAsAdmin
 │   ├── supabase/                 # Supabase clients
 │   │   ├── admin.ts              # Admin client (Service Role Key)
 │   │   ├── client.ts             # Browser client
