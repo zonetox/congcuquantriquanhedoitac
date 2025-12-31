@@ -25,6 +25,11 @@ const CATEGORIES = [
   { value: "Other", label: "Other" },
 ] as const;
 
+// Free users chỉ được chọn General
+const FREE_CATEGORIES = [
+  { value: "General", label: "General" },
+] as const;
+
 export function AddProfileModal({
   isOpen,
   onClose,
@@ -46,6 +51,7 @@ export function AddProfileModal({
   // Cập nhật premium status khi prop thay đổi
   useEffect(() => {
     setIsUserPremium(isPremiumProp);
+    // Free users chỉ được dùng "General", không được dùng "Competitor"
     if (!isPremiumProp) {
       setCategory("General");
     }
@@ -239,7 +245,7 @@ export function AddProfileModal({
               disabled={!isUserPremium || loading}
               className="w-full px-4 py-3 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-700 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {CATEGORIES.map((cat) => (
+              {(isUserPremium ? CATEGORIES : FREE_CATEGORIES).map((cat) => (
                 <option key={cat.value} value={cat.value}>
                   {cat.label}
                 </option>
@@ -247,7 +253,7 @@ export function AddProfileModal({
             </select>
             {!isUserPremium && (
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                Upgrade to Premium to categorize your profiles
+                Free users can only select &quot;General&quot;. Upgrade to Premium to use all categories including &quot;Competitor&quot;.
               </p>
             )}
           </div>

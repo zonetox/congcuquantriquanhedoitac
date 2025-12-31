@@ -88,17 +88,24 @@ CREATE TABLE public.profiles_tracked (
 {
   is_premium: boolean,           // true nếu user đã upgrade Premium
   premium_activated_at: string,  // Timestamp khi activate Premium
-  lemon_squeezy_order_id: string // Order ID từ Lemon Squeezy
+  lemon_squeezy_order_id: string, // Order ID từ Lemon Squeezy
+  role: string                    // 'admin' hoặc 'user' (default: 'user')
 }
 ```
 
 **Cách kiểm tra Premium**:
-- Sử dụng function `isPremium()` từ `lib/auth/helpers.ts`
+- Sử dụng function `isPremium()` từ `lib/membership.ts`
 - Kiểm tra `user.user_metadata?.is_premium === true`
+
+**Cách kiểm tra Role**:
+- Sử dụng function `isAdmin()` từ `lib/membership.ts`
+- Kiểm tra `user.user_metadata?.role === 'admin'`
+- Default role là `'user'` nếu không có trong metadata
 
 **⚠️ QUAN TRỌNG**: 
 - Premium status được cập nhật tự động từ Lemon Squeezy webhook
 - Không nên thay đổi `is_premium` trực tiếp trong code, chỉ thông qua webhook
+- Role phải được set thủ công qua Supabase Dashboard hoặc Admin API (xem `SQL_REQUIREMENTS.md`)
 
 ---
 
@@ -107,6 +114,8 @@ CREATE TABLE public.profiles_tracked (
 ```
 Partner Relationship Management/
 ├── app/                          # Next.js App Router
+│   ├── admin/                    # ✅ Admin pages
+│   │   └── page.tsx              # Admin dashboard (chỉ admin mới truy cập được)
 │   ├── api/                      # API Routes
 │   │   ├── test-connection/      # Test Supabase connection
 │   │   │   └── route.ts
@@ -125,25 +134,31 @@ Partner Relationship Management/
 │   └── page.tsx                 # Home page (Landing/Dashboard)
 │
 ├── components/                   # React Components
+│   ├── admin/                    # Admin components
+│   │   └── AdminDashboard.tsx    # Admin dashboard với danh sách tất cả profiles
 │   ├── auth/                     # Auth components
 │   │   └── login-form.tsx        # Login/Register form
 │   ├── AddProfileForm.tsx        # ⚠️ DEPRECATED: Dùng AddProfileModal thay thế
 │   ├── AddProfileModal.tsx       # ✅ Modal form để thêm profile
 │   ├── DashboardContent.tsx     # Dashboard container
+│   ├── Header.tsx                # ✅ Header component (mobile + desktop)
 │   ├── LandingPage.tsx           # Landing page (chưa đăng nhập)
-│   ├── Navbar.tsx                # Navigation bar
+│   ├── Navbar.tsx                # ⚠️ DEPRECATED: Dùng Sidebar/Header thay thế
 │   ├── ProfileCard.tsx           # Business card style profile card
 │   ├── ProfileGrid.tsx           # Grid layout cho profiles
+│   ├── Sidebar.tsx               # ✅ Sidebar component (desktop)
 │   └── UpgradeButton.tsx         # Button upgrade Premium
 │
 ├── lib/                          # Shared libraries
 │   ├── auth/                     # Authentication logic
 │   │   ├── actions.ts            # Server actions: signUp, signIn, signOut
-│   │   └── helpers.ts            # Helper: isPremium()
+│   │   └── helpers.ts            # ⚠️ DEPRECATED: Dùng lib/membership.ts thay thế
 │   ├── config/                   # Configuration
 │   │   └── lemon-squeezy.ts      # Lemon Squeezy checkout URL
+│   ├── membership.ts             # ✅ Membership & Role management
 │   ├── profiles/                 # Profile management
 │   │   ├── actions.ts            # Server actions: addProfile, deleteProfile, getProfiles
+│   │   ├── admin-actions.ts     # ✅ Admin actions: getAllProfiles (Admin only)
 │   │   └── types.ts              # TypeScript types cho Profile
 │   ├── supabase/                 # Supabase clients
 │   │   ├── admin.ts              # Admin client (Service Role Key)
@@ -316,6 +331,30 @@ const result = await addProfile({
 { data: Profile[] | null, error?: string }
 ```
 
+### 2. Admin Actions (`lib/profiles/admin-actions.ts`) ✅ MỚI
+
+**⚠️ CHỈ dùng trong admin pages**
+**⚠️ PHẢI kiểm tra `isAdmin()` trước khi gọi các functions này**
+
+#### `getAllProfiles()`
+
+**Mục đích**: Lấy tất cả profiles trong hệ thống (Admin only)
+
+**Logic**:
+1. Sử dụng Admin Client (Service Role Key) để bypass RLS
+2. Query tất cả profiles từ `profiles_tracked`
+3. Sắp xếp theo `created_at DESC`
+
+**Return**:
+```typescript
+{ data: Profile[] | null, error?: string }
+```
+
+**⚠️ QUAN TRỌNG**: 
+- Function này bypass RLS bằng cách dùng Admin Client
+- CHỈ được gọi sau khi đã verify user là admin
+- Không expose ra client-side
+
 ---
 
 ## 🎨 UI COMPONENTS
@@ -348,6 +387,8 @@ const result = await addProfile({
 - URL (required, auto-normalize)
 - Title (required, auto-suggest từ domain)
 - Category (Premium only, disabled cho Free)
+  - **Free users**: Chỉ được chọn "General" (không được chọn "Competitor")
+  - **Premium users**: Được chọn tất cả categories
 - Notes (Premium only, disabled cho Free)
 
 **Features**:
@@ -356,13 +397,34 @@ const result = await addProfile({
 - Free limit warning (5 profiles)
 - Loading state với spinner
 - Toast notifications
+- Membership-based category restrictions
 
 **Implementation Notes**:
 - Gọi `addProfile()` với parameters riêng biệt (không phải object)
 - Sử dụng `e.clipboardData.getData("text")` để lấy text từ clipboard (không dùng `getText()`)
 - Notes phải là `undefined` nếu empty, không dùng `null`
+- Free users chỉ thấy `FREE_CATEGORIES` (chỉ "General"), Premium users thấy `CATEGORIES` (tất cả)
 
-### 4. Profile Card (`components/ProfileCard.tsx`)
+### 4. Admin Dashboard (`components/admin/AdminDashboard.tsx`) ✅ MỚI
+
+**Mục đích**: Admin dashboard để quản lý tất cả profiles trong hệ thống
+
+**Features**:
+- Statistics cards: Total profiles, Unique users, Categories count
+- Search và filter profiles
+- Table hiển thị tất cả profiles với:
+  - Profile info (favicon, title, notes)
+  - URL (clickable link)
+  - Category badge
+  - User ID (truncated)
+  - Created date
+- Category breakdown section
+
+**Access Control**:
+- Chỉ admin mới có thể truy cập
+- Route: `/admin`
+
+### 5. Profile Card (`components/ProfileCard.tsx`)
 
 **Mục đích**: Hiển thị profile dưới dạng Business Card
 
@@ -392,16 +454,11 @@ const result = await addProfile({
 - Toast notifications
 - Auto-refresh sau khi delete
 
-### 6. Navbar (`components/Navbar.tsx`)
+### 7. Navbar (`components/Navbar.tsx`) ⚠️ DEPRECATED
 
-**Mục đích**: Navigation bar ở top
+**Mục đích**: Navigation bar ở top (Đã được thay thế bởi Sidebar/Header)
 
-**Features**:
-- Logo: "Partner Center" với Target icon
-- User email (subtitle)
-- Premium badge (nếu Premium)
-- Settings button → `/settings`
-- Sign Out button
+**Status**: ⚠️ DEPRECATED - Dùng `Sidebar` và `Header` thay thế
 
 ---
 
@@ -434,6 +491,36 @@ const result = await addProfile({
 ### 3. `/auth/callback` (GET)
 
 **Mục đích**: Handle Supabase auth callbacks (email verification, OAuth, etc.)
+
+---
+
+## 🔐 ROLE-BASED ACCESS CONTROL (RBAC)
+
+### 1. Roles
+
+**Các roles hiện có**:
+- `'user'`: User thường (default)
+- `'admin'`: Admin user (có quyền truy cập `/admin`)
+
+### 2. Admin Access
+
+**Route**: `/app/admin/page.tsx`
+
+**Access Control**:
+1. ✅ Kiểm tra authentication (phải có user)
+2. ✅ Kiểm tra role: `user.user_metadata?.role === 'admin'`
+3. ✅ Nếu không phải admin → redirect về `/`
+4. ✅ Nếu là admin → hiển thị Admin Dashboard
+
+**Admin Features**:
+- Xem tất cả profiles trong hệ thống
+- Statistics: Total profiles, Unique users, Categories breakdown
+- Search và filter profiles
+- Xem chi tiết từng profile (user_id, created_at, etc.)
+
+**⚠️ QUAN TRỌNG**: 
+- Admin role phải được set thủ công qua Supabase Dashboard (xem `SQL_REQUIREMENTS.md`)
+- Không thể set admin role qua code thông thường (phải dùng Admin API hoặc Dashboard)
 
 ---
 

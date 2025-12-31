@@ -1,7 +1,8 @@
 import { getUser } from "@/lib/supabase/helpers";
 import { redirect } from "next/navigation";
-import { Navbar } from "@/components/Navbar";
-import { isPremium } from "@/lib/auth/helpers";
+import { Sidebar } from "@/components/Sidebar";
+import { Header } from "@/components/Header";
+import { isPremium, isAdmin } from "@/lib/membership";
 import { UpgradeButton } from "@/components/UpgradeButton";
 
 export default async function SettingsPage() {
@@ -11,12 +12,25 @@ export default async function SettingsPage() {
     redirect("/login");
   }
 
-  const userIsPremium = await isPremium();
+  const [userIsPremium, userIsAdmin] = await Promise.all([
+    isPremium(),
+    isAdmin(),
+  ]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      <Navbar userEmail={user.email} isPremium={userIsPremium} />
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <Sidebar
+        userEmail={user.email}
+        isPremium={userIsPremium}
+        isAdmin={userIsAdmin}
+      />
+      <Header
+        userEmail={user.email}
+        isPremium={userIsPremium}
+        isAdmin={userIsAdmin}
+      />
+      <div className="lg:pl-64">
+        <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8">
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-8">
             Settings
@@ -72,6 +86,7 @@ export default async function SettingsPage() {
           </div>
         </div>
       </main>
+      </div>
     </div>
   );
 }
