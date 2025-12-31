@@ -12,9 +12,11 @@ import type { Profile } from "@/lib/profiles/types";
 interface ProfileGridProps {
   profiles: Profile[];
   isPremium?: boolean;
+  hasValidPremium?: boolean; // is_premium === true HOẶC đang trong trial
+  trialExpired?: boolean; // Trial đã hết hạn và không phải premium
 }
 
-export function ProfileGrid({ profiles, isPremium = false }: ProfileGridProps) {
+export function ProfileGrid({ profiles, isPremium = false, hasValidPremium = false, trialExpired = false }: ProfileGridProps) {
   const router = useRouter();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -75,15 +77,21 @@ export function ProfileGrid({ profiles, isPremium = false }: ProfileGridProps) {
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
-        {profiles.map((profile) => (
-          <ProfileCard
-            key={profile.id}
-            profile={profile}
-            onDelete={handleDelete}
-            isDeleting={deletingId === profile.id}
-            isPremium={isPremium}
-          />
-        ))}
+        {profiles.map((profile, index) => {
+          // Logic blur: Nếu trial expired và không premium, blur từ profile thứ 6 (index >= 5)
+          const shouldBlur = trialExpired && !isPremium && index >= 5;
+          
+          return (
+            <ProfileCard
+              key={profile.id}
+              profile={profile}
+              onDelete={handleDelete}
+              isDeleting={deletingId === profile.id}
+              isPremium={isPremium}
+              isBlurred={shouldBlur}
+            />
+          );
+        })}
       </div>
     </div>
   );

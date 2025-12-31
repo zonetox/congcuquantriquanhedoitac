@@ -50,6 +50,7 @@ export interface Database {
           email: string | null;
           role: string;
           is_premium: boolean;
+          trial_started_at: string | null;
           updated_at: string;
         };
         Insert: {
@@ -57,6 +58,7 @@ export interface Database {
           email?: string | null;
           role?: string;
           is_premium?: boolean;
+          trial_started_at?: string | null;
           updated_at?: string;
         };
         Update: {
@@ -64,6 +66,7 @@ export interface Database {
           email?: string | null;
           role?: string;
           is_premium?: boolean;
+          trial_started_at?: string | null;
           updated_at?: string;
         };
       };

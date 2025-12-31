@@ -10,10 +10,12 @@ import type { Profile } from "@/lib/profiles/types";
 interface DashboardContentProps {
   profiles: Profile[];
   isPremium: boolean;
+  hasValidPremium?: boolean; // is_premium === true HOẶC đang trong trial
+  trialExpired?: boolean; // Trial đã hết hạn và không phải premium
   currentProfileCount: number;
 }
 
-export function DashboardContent({ profiles, isPremium, currentProfileCount }: DashboardContentProps) {
+export function DashboardContent({ profiles, isPremium, hasValidPremium = false, trialExpired = false, currentProfileCount }: DashboardContentProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (
@@ -29,12 +31,27 @@ export function DashboardContent({ profiles, isPremium, currentProfileCount }: D
               {profiles.length} {profiles.length === 1 ? "profile" : "profiles"} tracked
             </p>
           </div>
-          {!isPremium && <UpgradeButton />}
+          <div className="flex items-center gap-3">
+            {!isPremium && <UpgradeButton />}
+            {/* Add Profile Button - Nổi bật ở đầu trang */}
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-700 hover:to-blue-700 text-white rounded-lg shadow-lg hover:shadow-emerald-500/50 transition-all transform hover:scale-105 font-medium"
+            >
+              <Plus className="w-5 h-5" />
+              <span>Add New Profile</span>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Profiles Grid */}
-      <ProfileGrid profiles={profiles} isPremium={isPremium} />
+      <ProfileGrid 
+        profiles={profiles} 
+        isPremium={isPremium}
+        hasValidPremium={hasValidPremium}
+        trialExpired={trialExpired}
+      />
 
       {/* Floating Add Button */}
       <button

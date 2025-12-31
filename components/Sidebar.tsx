@@ -11,6 +11,11 @@ interface SidebarProps {
   isPremium?: boolean;
   isAdmin?: boolean;
   currentProfileCount?: number;
+  trialStatus?: {
+    daysLeft: number | null;
+    isActive: boolean;
+    isExpired: boolean;
+  };
 }
 
 const navigation = [
@@ -18,7 +23,7 @@ const navigation = [
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
-export function Sidebar({ userEmail, isPremium, isAdmin, currentProfileCount = 0 }: SidebarProps) {
+export function Sidebar({ userEmail, isPremium, isAdmin, currentProfileCount = 0, trialStatus }: SidebarProps) {
   const pathname = usePathname();
   const MAX_FREE_PROFILES = 5;
 
@@ -59,19 +64,38 @@ export function Sidebar({ userEmail, isPremium, isAdmin, currentProfileCount = 0
                 <item.icon className="w-5 h-5" />
                 <span className="font-medium">{item.name}</span>
               </Link>
-              {/* Usage Indicator - chỉ hiển thị dưới Dashboard và khi không phải Premium */}
-              {item.name === "Dashboard" && !isPremium && (
-                <div className="px-4 py-2 mt-1">
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Usage: <span className={cn(
-                      "font-semibold",
-                      currentProfileCount >= MAX_FREE_PROFILES 
-                        ? "text-red-600 dark:text-red-400" 
-                        : "text-slate-700 dark:text-slate-300"
-                    )}>
-                      {currentProfileCount}/{MAX_FREE_PROFILES} profiles
-                    </span>
-                  </p>
+              {/* Trial Status & Usage Indicator - chỉ hiển thị dưới Dashboard */}
+              {item.name === "Dashboard" && (
+                <div className="px-4 py-2 mt-1 space-y-1">
+                  {/* Trial Status */}
+                  {trialStatus && !isPremium && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {trialStatus.isActive && trialStatus.daysLeft !== null ? (
+                        <>
+                          Trial: <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                            {trialStatus.daysLeft} {trialStatus.daysLeft === 1 ? "day" : "days"} left
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          Plan: <span className="font-semibold text-slate-700 dark:text-slate-300">Free</span>
+                        </>
+                      )}
+                    </p>
+                  )}
+                  {/* Usage Indicator - chỉ hiển thị khi không phải Premium */}
+                  {!isPremium && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Usage: <span className={cn(
+                        "font-semibold",
+                        currentProfileCount >= MAX_FREE_PROFILES 
+                          ? "text-red-600 dark:text-red-400" 
+                          : "text-slate-700 dark:text-slate-300"
+                      )}>
+                        {currentProfileCount}/{MAX_FREE_PROFILES} profiles
+                      </span>
+                    </p>
+                  )}
                 </div>
               )}
             </div>

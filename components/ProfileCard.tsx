@@ -1,7 +1,7 @@
 "use client";
 
 import { getFaviconUrl, getDomainFromUrl } from "@/lib/utils/url";
-import { Trash2, Globe, Radio, Crown, ExternalLink } from "lucide-react";
+import { Trash2, Globe, Radio, Crown, ExternalLink, Lock } from "lucide-react";
 import { useState, memo } from "react";
 import Image from "next/image";
 
@@ -12,9 +12,10 @@ interface ProfileCardProps {
   onDelete: (profileId: string) => void;
   isDeleting?: boolean;
   isPremium?: boolean;
+  isBlurred?: boolean; // Profile bị blur (trial expired, từ thứ 6 trở đi)
 }
 
-export const ProfileCard = memo(function ProfileCard({ profile, onDelete, isDeleting = false, isPremium = false }: ProfileCardProps) {
+export const ProfileCard = memo(function ProfileCard({ profile, onDelete, isDeleting = false, isPremium = false, isBlurred = false }: ProfileCardProps) {
   const [faviconError, setFaviconError] = useState(false);
 
   const handleCardClick = (e: React.MouseEvent) => {
@@ -33,12 +34,20 @@ export const ProfileCard = memo(function ProfileCard({ profile, onDelete, isDele
 
   return (
     <div
-      onClick={handleCardClick}
-      className={`group relative bg-gradient-to-br from-white to-slate-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer p-6 border-2 ${
+      onClick={isBlurred ? undefined : handleCardClick}
+      className={`group relative bg-gradient-to-br from-white to-slate-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 p-6 border-2 ${
+        isBlurred 
+          ? "cursor-not-allowed opacity-60"
+          : "cursor-pointer"
+      } ${
         isPremium
           ? "border-yellow-400 dark:border-yellow-500 shadow-yellow-200/30 dark:shadow-yellow-900/20"
           : "border-slate-200 dark:border-gray-700 hover:border-emerald-300 dark:hover:border-emerald-600"
-      } transform hover:-translate-y-2 hover:scale-[1.02]`}
+      } ${!isBlurred ? "transform hover:-translate-y-2 hover:scale-[1.02]" : ""}`}
+      style={isBlurred ? {
+        filter: "blur(4px) grayscale(1)",
+        pointerEvents: "none" as const,
+      } : undefined}
     >
       {/* Premium Crown Icon */}
       {isPremium && (

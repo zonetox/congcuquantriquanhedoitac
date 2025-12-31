@@ -90,6 +90,7 @@ CREATE TABLE public.user_profiles (
   email TEXT,
   role TEXT DEFAULT 'user', -- 'user' hoặc 'admin'
   is_premium BOOLEAN DEFAULT false,
+  trial_started_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), -- Ngày bắt đầu trial (15 ngày)
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 ```
@@ -101,7 +102,8 @@ CREATE TABLE public.user_profiles (
 | `id` | UUID | PRIMARY KEY, FOREIGN KEY → auth.users(id) | ID của user (khớp với auth.users) |
 | `email` | TEXT | NULLABLE | Email của user (để dễ query) |
 | `role` | TEXT | DEFAULT 'user' | Role: 'user' hoặc 'admin' |
-| `is_premium` | BOOLEAN | DEFAULT false | Premium status |
+| `is_premium` | BOOLEAN | DEFAULT false | Premium status (trả phí) |
+| `trial_started_at` | TIMESTAMP WITH TIME ZONE | DEFAULT NOW() | Ngày bắt đầu trial (15 ngày miễn phí) |
 | `updated_at` | TIMESTAMP WITH TIME ZONE | DEFAULT now() | Thời gian cập nhật |
 
 **Indexes**:
@@ -123,8 +125,10 @@ CREATE TABLE public.user_profiles (
 - `is_admin_user()`: Function để check admin role (dùng trong policies, tránh circular dependency)
 
 **Cách kiểm tra Premium**:
-- Sử dụng function `isPremium()` từ `lib/membership.ts`
-- Query từ bảng `user_profiles`: `SELECT is_premium FROM user_profiles WHERE id = user.id`
+- `isPremium()`: Chỉ check `is_premium === true` (không tính trial)
+- `hasValidPremiumAccess()`: Check Premium hợp lệ = `is_premium === true` HOẶC đang trong trial period (<= 15 ngày)
+- `getTrialStatus()`: Lấy số ngày còn lại của trial
+- Query từ bảng `user_profiles`: `SELECT is_premium, trial_started_at FROM user_profiles WHERE id = user.id`
 
 **Cách kiểm tra Role**:
 - Sử dụng function `isAdmin()` từ `lib/membership.ts`
@@ -262,11 +266,24 @@ Partner Relationship Management/
 
 **Functions chính**:
 
-#### `getUserMembership(): Promise<{isPremium: boolean, isAdmin: boolean, role: 'admin' | 'user' | null}>` ✅ TỐI ƯU
+#### `getUserMembership(): Promise<{isPremium: boolean, isAdmin: boolean, role: 'admin' | 'user' | null, hasValidPremium: boolean, trialStatus: {...}}>` ✅ TỐI ƯU
 - **Tối ưu performance**: Gộp `isPremium()` và `isAdmin()` thành 1 query
 - **Khuyến nghị**: Dùng function này thay vì gọi `isPremium()` và `isAdmin()` riêng biệt
-- Logic: Query từ `user_profiles` một lần, trả về cả `is_premium` và `role`
+- Logic: Query từ `user_profiles` một lần, trả về cả `is_premium`, `role`, và `trial_started_at`
+- **hasValidPremium**: `is_premium === true` HOẶC đang trong trial period (<= 15 ngày)
+- **trialStatus**: `{daysLeft: number | null, isActive: boolean, isExpired: boolean}`
 - **Sử dụng**: `app/page.tsx`, `app/admin/page.tsx`, `app/settings/page.tsx`
+
+#### `getTrialStatus(): Promise<{daysLeft: number | null, isActive: boolean, isExpired: boolean}>`
+- Lấy số ngày còn lại của trial (0-15 ngày)
+- `daysLeft`: Số ngày còn lại (null nếu không có trial hoặc đã hết hạn)
+- `isActive`: Trial còn hoạt động không
+- `isExpired`: Trial đã hết hạn chưa
+
+#### `hasValidPremiumAccess(): Promise<boolean>`
+- Kiểm tra xem user có quyền Premium hợp lệ không
+- Logic: `is_premium === true` HOẶC đang trong trial period (<= 15 ngày)
+- **Sử dụng**: Để check quyền truy cập features (category, notes, v.v.)
 
 #### `isPremium(): Promise<boolean>`
 - Kiểm tra xem user có phải Premium không
@@ -283,28 +300,34 @@ Partner Relationship Management/
 - Default: `'user'` nếu không tìm thấy profile
 
 #### `canSelectCompetitorCategory(): Promise<boolean>`
-- Free users: KHÔNG được chọn 'Competitor' (chỉ 'General')
-- Premium users: Được chọn tất cả categories
+- Free users (không premium và không trong trial): KHÔNG được chọn 'Competitor' (chỉ 'General')
+- Premium users HOẶC đang trong trial: Được chọn tất cả categories
+- **Logic**: Dùng `hasValidPremiumAccess()` thay vì `isPremium()`
 
-#### `canAddProfile(currentProfileCount): Promise<{allowed: boolean, reason?: string}>`
-- Free users: Tối đa 5 profiles
-- Premium users: Unlimited
+#### `canAddProfile(currentProfileCount): Promise<{allowed: boolean, reason?: string, warning?: string}>`
+- **Logic mới (Trial + Blur)**: KHÔNG chặn cứng việc thêm profile
+- Cho phép thêm unlimited profiles
+- Profiles từ thứ 6 trở đi sẽ bị blur nếu trial expired và không premium
+- Trả về `warning` message nếu đạt giới hạn, nhưng vẫn `allowed: true`
+- **Sử dụng**: `hasValidPremiumAccess()` để check quyền
 
 #### `canUseNotes(): Promise<boolean>`
-- Free users: KHÔNG
-- Premium users: CÓ
+- Free users (không premium và không trong trial): KHÔNG
+- Premium users HOẶC đang trong trial: CÓ
+- **Logic**: Dùng `hasValidPremiumAccess()` thay vì `isPremium()`
 
 #### `getMembershipInfo(): Promise<MembershipInfo>`
 - Lấy thông tin membership đầy đủ của user
 
 ### 2. Premium Features
 
-| Feature | Free | Premium |
-|---------|------|---------|
-| Max Profiles | 5 | Unlimited |
-| Categories | Chỉ "General" | Tất cả categories |
-| Notes | ❌ Disabled | ✅ Enabled |
-| AI Updates | ❌ Coming soon | ✅ Coming soon |
+| Feature | Free | Trial (15 days) | Premium |
+|---------|------|-----------------|---------|
+| Max Profiles | Unlimited (5 đầu hiển thị, từ thứ 6 blur) | Unlimited (full access) | Unlimited |
+| Categories | Chỉ "General" | Tất cả categories | Tất cả categories |
+| Notes | ❌ Disabled | ✅ Enabled | ✅ Enabled |
+| AI Updates | ❌ Coming soon | ✅ Coming soon | ✅ Coming soon |
+| Profile Blur | ✅ Từ profile thứ 6 | ❌ Không blur | ❌ Không blur |
 
 ### 3. Premium Activation
 
@@ -917,6 +940,17 @@ Trước khi commit code, đảm bảo:
 **Maintained by**: Development Team
 
 **🔄 Recent Updates** (2024-12-19):
+
+**Trial 15 Days + Blur Data** (v2.3.0):
+- ✅ **Trial Logic**: Thêm `trial_started_at` vào `user_profiles` table
+- ✅ **Premium Access**: `hasValidPremiumAccess()` = `is_premium === true` HOẶC đang trong trial (<= 15 ngày)
+- ✅ **Trial Status**: `getTrialStatus()` trả về số ngày còn lại, isActive, isExpired
+- ✅ **Profile Blur**: Profiles từ thứ 6 trở đi bị blur nếu trial expired và không premium
+- ✅ **Blur Overlay**: ProfileCard hiển thị overlay với Lock icon và "Upgrade to Unlock" khi bị blur
+- ✅ **Trial Display**: Sidebar và Header hiển thị "Trial: X days left" hoặc "Plan: Free"
+- ✅ **No Hard Limit**: Không chặn cứng việc thêm profile, chỉ blur từ profile thứ 6
+- ✅ **Profile Sorting**: ProfileGrid sắp xếp theo `created_at DESC` (mới nhất lên đầu)
+- ✅ **Add Button**: Nút "Add New Profile" nổi bật ở đầu trang Dashboard
 
 **Performance Optimizations** (v2.2.0):
 - ✅ **Query Optimization**: Tạo `getUserMembership()` để gộp `isPremium()` và `isAdmin()` thành 1 query
