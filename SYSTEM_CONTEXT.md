@@ -577,6 +577,12 @@ const result = await addProfile({
 
 **Mục đích**: Grid layout cho danh sách profiles
 
+**Trial + Blur Logic**:
+- ✅ **Sorting**: Profiles được sắp xếp theo `created_at DESC` (mới nhất lên đầu) - đã được sort trong `getProfiles()`
+- ✅ **Blur Logic**: Nếu `trialExpired === true` và `isPremium === false`, profiles từ index 5 trở đi (từ thứ 6) sẽ bị blur
+- ✅ **Props**: Nhận `hasValidPremium` và `trialExpired` từ parent component
+- ✅ **Conditional Blur**: Chỉ blur khi `trialExpired && !isPremium && index >= 5`
+
 **Layout**:
 - Responsive: 1 col (mobile) → 2 cols (sm) → 3 cols (lg) → 4 cols (xl) → 5 cols (2xl)
 - Gap: 6 (24px)
@@ -586,6 +592,7 @@ const result = await addProfile({
 - Delete confirmation dialog
 - Toast notifications
 - Auto-refresh sau khi delete
+- Pass `isBlurred` prop cho ProfileCard dựa trên trial status và index
 
 ### 7. Navbar (`components/Navbar.tsx`) ⚠️ DEPRECATED
 
