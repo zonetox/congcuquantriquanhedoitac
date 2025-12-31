@@ -878,7 +878,9 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
 # Lemon Squeezy
+# Lemon Squeezy
 NEXT_PUBLIC_LEMON_SQUEEZY_CHECKOUT_URL=https://your-store.lemonsqueezy.com/checkout/buy/your-product-id
+NEXT_PUBLIC_LEMON_SQUEEZY_CUSTOMER_PORTAL_URL=https://app.lemonsqueezy.com/my-account
 LEMON_SQUEEZY_WEBHOOK_SECRET=your-webhook-secret
 ```
 
