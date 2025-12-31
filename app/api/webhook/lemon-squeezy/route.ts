@@ -83,13 +83,17 @@ export async function POST(request: NextRequest) {
 
     // Lấy event name từ header hoặc payload
     const eventName =
-      request.headers.get("x-event-name") || payload.meta?.event_name;
+      request.headers.get("x-event-name") || 
+      payload.meta?.event_name ||
+      payload.event_name;
 
     console.log("[Webhook] Received event:", eventName);
     console.log("[Webhook] Payload:", JSON.stringify(payload, null, 2));
 
-    // Chỉ xử lý order_created event
-    if (eventName !== "order_created") {
+    // Xử lý các events: order_created, subscription_created, subscription_cancelled
+    const supportedEvents = ["order_created", "subscription_created", "subscription_cancelled"];
+    
+    if (!supportedEvents.includes(eventName)) {
       console.log("[Webhook] Ignoring event:", eventName);
       return NextResponse.json({
         message: "Event ignored",
@@ -97,27 +101,31 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Lấy email từ order data
-    // Lemon Squeezy order structure có thể khác nhau, cần check documentation
+    // Lấy email từ payload (có thể từ order hoặc subscription)
+    // Lemon Squeezy structure: payload.data.attributes.customer_email hoặc payload.data.attributes.user_email
     const customerEmail =
-      payload.data?.attributes?.user_email ||
       payload.data?.attributes?.customer_email ||
-      payload.data?.attributes?.email;
+      payload.data?.attributes?.user_email ||
+      payload.data?.attributes?.email ||
+      payload.customer_email ||
+      payload.user_email ||
+      payload.email;
 
     if (!customerEmail) {
-      console.error("[Webhook] No email found in order data");
+      console.error("[Webhook] No email found in payload");
+      console.error("[Webhook] Payload structure:", JSON.stringify(payload, null, 2));
       return NextResponse.json(
-        { error: "No email found in order data" },
+        { error: "No email found in payload" },
         { status: 400 }
       );
     }
 
-    console.log("[Webhook] Processing order for email:", customerEmail);
+    console.log("[Webhook] Processing event:", eventName, "for email:", customerEmail);
 
-    // Tạo admin client để có quyền cập nhật user_profiles
+    // Tạo admin client để có quyền cập nhật user_profiles (bypass RLS)
     const supabase = createAdminClient();
 
-    // Tìm user theo email trong user_profiles (tối ưu hơn list all users)
+    // Tìm user theo email trong user_profiles
     const { data: userProfile, error: findError } = await supabase
       .from("user_profiles")
       .select("id, email")
@@ -141,12 +149,25 @@ export async function POST(request: NextRequest) {
 
     console.log("[Webhook] Found user:", userProfile.id);
 
-    // Cập nhật user_profiles với is_premium = true
-    // Sử dụng Admin Client để bypass RLS
+    // Xử lý từng event type
+    let isPremium = false;
+    let message = "";
+
+    if (eventName === "order_created" || eventName === "subscription_created") {
+      // Kích hoạt Premium
+      isPremium = true;
+      message = "User upgraded to premium";
+    } else if (eventName === "subscription_cancelled") {
+      // Hủy Premium
+      isPremium = false;
+      message = "User subscription cancelled";
+    }
+
+    // Cập nhật user_profiles với is_premium
     const { data: updatedProfile, error: updateError } = await supabase
       .from("user_profiles")
       .update({
-        is_premium: true,
+        is_premium: isPremium,
         updated_at: new Date().toISOString(),
       })
       .eq("id", userProfile.id)
@@ -161,13 +182,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("[Webhook] User profile updated successfully:", updatedProfile?.id);
+    console.log("[Webhook] User profile updated successfully:", updatedProfile?.id, "is_premium:", isPremium);
 
     return NextResponse.json({
       success: true,
-      message: "User upgraded to premium",
+      message,
+      event: eventName,
       userId: userProfile.id,
       email: customerEmail,
+      is_premium: isPremium,
     });
   } catch (error: any) {
     console.error("[Webhook] Unexpected error:", error);

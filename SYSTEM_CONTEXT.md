@@ -409,18 +409,36 @@ Partner Relationship Management/
 **Webhook**: `app/api/webhook/lemon-squeezy/route.ts`
 
 **Flow**:
-1. User click "Upgrade to Premium" → mở Lemon Squeezy checkout
+1. User click "Upgrade to Premium" → mở Lemon Squeezy checkout (từ `NEXT_PUBLIC_LEMON_SQUEEZY_CHECKOUT_URL`)
 2. User thanh toán thành công
-3. Lemon Squeezy gửi webhook `order_created` đến `/api/webhook/lemon-squeezy`
+3. Lemon Squeezy gửi webhook đến `/api/webhook/lemon-squeezy` với các events:
+   - `order_created`: Khi order được tạo (one-time payment)
+   - `subscription_created`: Khi subscription được tạo (recurring payment)
+   - `subscription_cancelled`: Khi subscription bị hủy
 4. Webhook handler:
-   - Verify signature (HMAC SHA256)
-   - Tìm user theo email từ `user_profiles` (tối ưu hơn list all users)
-   - **Cập nhật `user_profiles.is_premium = true`** bằng Admin Client (KHÔNG còn dùng metadata)
+   - **Xác thực**: Verify signature (HMAC SHA256) từ header `x-signature` với `LEMON_SQUEEZY_WEBHOOK_SECRET`
+   - **Tìm user**: Tìm user theo email từ payload (`customer_email`, `user_email`, hoặc `email`)
+   - **Cập nhật Premium**:
+     - `order_created` hoặc `subscription_created`: Set `user_profiles.is_premium = true`
+     - `subscription_cancelled`: Set `user_profiles.is_premium = false`
+   - **Bảo mật**: Sử dụng Admin Client (`SUPABASE_SERVICE_ROLE_KEY`) để bypass RLS
    - Update `updated_at` timestamp
 
+**Supported Events**:
+- ✅ `order_created`: One-time payment → Activate Premium
+- ✅ `subscription_created`: Recurring subscription → Activate Premium
+- ✅ `subscription_cancelled`: Cancel subscription → Deactivate Premium
+
 **Environment Variables**:
-- `LEMON_SQUEEZY_WEBHOOK_SECRET`: Secret để verify webhook signature
+- `NEXT_PUBLIC_LEMON_SQUEEZY_CHECKOUT_URL`: Checkout URL từ Lemon Squeezy Dashboard
+- `NEXT_PUBLIC_LEMON_SQUEEZY_CUSTOMER_PORTAL_URL`: Customer Portal URL (default: `https://app.lemonsqueezy.com/my-account`)
+- `LEMON_SQUEEZY_WEBHOOK_SECRET`: Secret để verify webhook signature (từ Lemon Squeezy Dashboard > Settings > Webhooks)
 - `SUPABASE_SERVICE_ROLE_KEY`: Admin key để update user_profiles (bypass RLS)
+
+**Thank You Page**: `app/thank-you/page.tsx`
+- Hiển thị sau khi thanh toán thành công
+- Thông báo "Payment Successful!" và list Premium features
+- CTA button "Go to Dashboard"
 
 ---
 
