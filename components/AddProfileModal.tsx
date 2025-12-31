@@ -5,6 +5,7 @@ import { addProfile } from "@/lib/profiles/actions";
 import { X, Loader2, Globe } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import Image from "next/image";
 import { getFaviconUrl, getDomainFromUrl, isValidUrl, normalizeUrl } from "@/lib/utils/url";
 import { CategorySelector } from "@/components/CategorySelector";
 
@@ -191,10 +192,13 @@ export function AddProfileModal({
               />
               {faviconPreview && !faviconError && (
                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <img
+                  <Image
                     src={faviconPreview}
                     alt={domainPreview || "Favicon"}
+                    width={24}
+                    height={24}
                     className="w-6 h-6 rounded"
+                    unoptimized
                     onError={() => setFaviconError(true)}
                   />
                 </div>

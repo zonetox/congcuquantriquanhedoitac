@@ -5,6 +5,7 @@ import { addProfile } from "@/lib/profiles/actions";
 import { Link, Plus, Loader2, Globe } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import Image from "next/image";
 import { getFaviconUrl, getDomainFromUrl, isValidUrl, normalizeUrl } from "@/lib/utils/url";
 import { isPremium } from "@/lib/auth/helpers";
 
@@ -238,10 +239,13 @@ export function AddProfileForm({ currentProfileCount = 0, isPremium: isPremiumPr
                     <Globe className="w-5 h-5 text-gray-400 dark:text-gray-500" />
                   </div>
                 ) : (
-                  <img
+                  <Image
                     src={faviconPreview}
                     alt={domainPreview}
+                    width={32}
+                    height={32}
                     className="w-8 h-8 rounded object-cover flex-shrink-0"
+                    unoptimized
                     onError={() => {
                       // Đánh dấu lỗi để hiển thị icon fallback
                       setFaviconError(true);
