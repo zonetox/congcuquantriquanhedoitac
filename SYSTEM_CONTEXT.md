@@ -478,7 +478,9 @@ const result = await addProfile({
 **Features**:
 - Logo "Partner Center" với Target icon
 - Navigation links: Dashboard, Settings, Admin (nếu là admin)
-- **Usage Indicator**: Hiển thị "Usage: X/5 profiles" dưới menu Dashboard (chỉ khi không Premium)
+- **Trial Status**: Hiển thị "Trial: X days left" hoặc "Plan: Free" dưới menu Dashboard (chỉ khi không Premium)
+  - Props: `trialStatus` (từ parent component)
+- **Usage Indicator**: Hiển thị "Usage: X/5 profiles" dưới Trial Status (chỉ khi không Premium)
   - Màu đỏ khi đạt giới hạn (4/5 hoặc 5/5)
   - Props: `currentProfileCount` (từ parent component)
 - Premium badge (nếu Premium)
@@ -493,7 +495,9 @@ const result = await addProfile({
 **Features**:
 - Logo "Partner Center"
 - Navigation links: Dashboard, Settings, Admin (nếu là admin)
-- **Usage Indicator**: Hiển thị "Usage: X/5 profiles" trong mobile menu dưới Dashboard (chỉ khi không Premium)
+- **Trial Status**: Hiển thị "Trial: X days left" hoặc "Plan: Free" trong mobile menu dưới Dashboard (chỉ khi không Premium)
+  - Props: `trialStatus` (từ parent component)
+- **Usage Indicator**: Hiển thị "Usage: X/5 profiles" trong mobile menu dưới Trial Status (chỉ khi không Premium)
   - Màu đỏ khi đạt giới hạn (4/5 hoặc 5/5)
   - Props: `currentProfileCount` (từ parent component)
 - Mobile menu với hamburger icon
