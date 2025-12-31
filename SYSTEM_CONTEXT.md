@@ -745,8 +745,19 @@ const result = await addProfile({
 4. ✅ Nếu là admin → hiển thị Admin Dashboard
 
 **Admin Features**:
-- Xem tất cả profiles trong hệ thống
-- Statistics: Total profiles, Unique users, Categories breakdown
+- **Tabs**: Profiles và Users tabs để quản lý riêng biệt
+- **Profiles Tab**:
+  - Xem tất cả profiles trong hệ thống
+  - Statistics: Total profiles, Unique users, Categories breakdown
+  - Search profiles by title, URL, category
+  - **Filter by User**: Dropdown để lọc profiles theo user cụ thể
+  - **Inline Edit**: Click Edit để chỉnh sửa profile trực tiếp trong table
+  - **Delete Profile**: Xóa profile của bất kỳ user nào
+- **Users Tab**:
+  - Xem tất cả users trong hệ thống
+  - **Edit User**: Thay đổi Email, Role (User/Admin), Premium status
+  - **Delete User**: Xóa user và tất cả dữ liệu liên quan (Cascade)
+- **Admin Logs**: Tất cả actions được log vào `admin_logs` table
 - Search và filter profiles
 - Xem chi tiết từng profile (user_id, created_at, etc.)
 
