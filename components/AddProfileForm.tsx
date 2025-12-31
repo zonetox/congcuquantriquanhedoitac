@@ -344,7 +344,7 @@ export function AddProfileForm({ currentProfileCount = 0, isPremium: isPremiumPr
             />
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {isUserPremium
-                ? "Add a quick note about why you&apos;re tracking this profile"
+                ? "Add a quick note about why you're tracking this profile" // eslint-disable-line react/no-unescaped-entities
                 : "Upgrade to Premium to unlock notes feature"}
             </p>
           </div>

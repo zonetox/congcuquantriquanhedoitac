@@ -22,9 +22,9 @@ export function UpgradeButton({
   const baseClasses = "inline-flex items-center gap-2 font-semibold rounded-lg transition-all transform hover:scale-105";
   
   const variantClasses = {
-    default: "bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 hover:from-yellow-500 hover:via-yellow-600 hover:to-yellow-700 text-white shadow-lg hover:shadow-xl",
-    outline: "border-2 border-yellow-500 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-900/20",
-    ghost: "text-yellow-600 dark:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-900/20",
+    default: "bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl",
+    outline: "border-2 border-emerald-500 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20",
+    ghost: "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20",
   };
 
   const sizeClasses = {
@@ -44,4 +44,3 @@ export function UpgradeButton({
     </button>
   );
 }
-
