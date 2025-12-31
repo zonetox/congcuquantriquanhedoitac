@@ -4,7 +4,7 @@ import { LandingPage } from "@/components/LandingPage";
 import { Sidebar } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
 import { DashboardContent } from "@/components/DashboardContent";
-import { isPremium, isAdmin } from "@/lib/membership";
+import { getUserMembership } from "@/lib/membership";
 
 export default async function Home() {
   const user = await getUser();
@@ -15,11 +15,13 @@ export default async function Home() {
   }
 
   // If user is logged in, show dashboard
-  const { data: profiles } = await getProfiles();
-  const [userIsPremium, userIsAdmin] = await Promise.all([
-    isPremium(),
-    isAdmin(),
+  // Tối ưu: Gộp queries membership và profiles
+  const [{ data: profiles }, membership] = await Promise.all([
+    getProfiles(),
+    getUserMembership(),
   ]);
+  const userIsPremium = membership.isPremium;
+  const userIsAdmin = membership.isAdmin;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">

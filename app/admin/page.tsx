@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getUser } from "@/lib/supabase/helpers";
-import { isAdmin, isPremium } from "@/lib/membership";
+import { getUserMembership } from "@/lib/membership";
 import { getAllProfiles } from "@/lib/profiles/admin-actions";
 import { AdminDashboard } from "@/components/admin/AdminDashboard";
 import { Sidebar } from "@/components/Sidebar";
@@ -13,15 +13,16 @@ export default async function AdminPage() {
     redirect("/login");
   }
 
-  // Kiểm tra admin role
-  const userIsAdmin = await isAdmin();
-  if (!userIsAdmin) {
+  // Kiểm tra admin role và membership (tối ưu: 1 query thay vì 2)
+  const membership = await getUserMembership();
+  if (!membership.isAdmin) {
     redirect("/");
   }
 
   // Lấy tất cả profiles
   const { data: profiles, error } = await getAllProfiles();
-  const userIsPremium = await isPremium();
+  const userIsPremium = membership.isPremium;
+  const userIsAdmin = membership.isAdmin;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">

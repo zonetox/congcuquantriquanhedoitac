@@ -898,10 +898,29 @@ Trước khi commit code, đảm bảo:
 ---
 
 **📅 Last Updated**: 2024-12-19
-**Version**: 2.1.0 (UI Improvements: Category Badge Colors, Usage Indicator, Mobile Responsive)
+**Version**: 2.2.0 (Performance Optimizations: Query Optimization, Image Lazy Loading, Logging Cleanup)
 **Maintained by**: Development Team
 
 **🔄 Recent Updates** (2024-12-19):
+
+**Performance Optimizations** (v2.2.0):
+- ✅ **Query Optimization**: Tạo `getUserMembership()` để gộp `isPremium()` và `isAdmin()` thành 1 query
+  - Giảm số lượng database queries từ 2 xuống 1
+  - Tất cả pages (`app/page.tsx`, `app/admin/page.tsx`, `app/settings/page.tsx`) đã được cập nhật
+- ✅ **Image Optimization**: 
+  - Sử dụng Next.js `Image` component thay vì `<img>` tag
+  - Lazy loading cho favicons (`loading="lazy"`)
+  - Memoization cho `ProfileCard` component (`React.memo`)
+  - Next.js config: Thêm `remotePatterns` cho Google Favicon API
+- ✅ **Logging Cleanup**: 
+  - Loại bỏ `console.log` trong production code
+  - Chỉ log trong development mode (`process.env.NODE_ENV === "development"`)
+- ✅ **Next.js Config**: 
+  - Enable compression (`compress: true`)
+  - Remove `X-Powered-By` header (`poweredByHeader: false`)
+  - Image optimization config
+
+**UI Improvements** (v2.1.0):
 - ✅ **Category Badge Colors**: Thêm màu phân biệt cho category badges trong ProfileCard
   - Competitor: Red (`bg-red-100`, `text-red-700`)
   - Partner: Green (`bg-emerald-100`, `text-emerald-700`)

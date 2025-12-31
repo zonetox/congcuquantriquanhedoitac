@@ -2,7 +2,8 @@
 
 import { getFaviconUrl, getDomainFromUrl } from "@/lib/utils/url";
 import { Trash2, Globe, Radio, Crown, ExternalLink } from "lucide-react";
-import { useState } from "react";
+import { useState, memo } from "react";
+import Image from "next/image";
 
 import type { Profile } from "@/lib/profiles/types";
 
@@ -13,7 +14,7 @@ interface ProfileCardProps {
   isPremium?: boolean;
 }
 
-export function ProfileCard({ profile, onDelete, isDeleting = false, isPremium = false }: ProfileCardProps) {
+export const ProfileCard = memo(function ProfileCard({ profile, onDelete, isDeleting = false, isPremium = false }: ProfileCardProps) {
   const [faviconError, setFaviconError] = useState(false);
 
   const handleCardClick = (e: React.MouseEvent) => {
@@ -105,10 +106,14 @@ export function ProfileCard({ profile, onDelete, isDeleting = false, isPremium =
             </div>
           ) : (
             <div className="relative">
-              <img
+              <Image
                 src={getFaviconUrl(profile.url)}
                 alt={getDomainFromUrl(profile.url)}
+                width={80}
+                height={80}
                 className="w-20 h-20 rounded-xl object-cover border-2 border-slate-200 dark:border-gray-700 shadow-md"
+                loading="lazy"
+                unoptimized // Google favicon API đã optimize sẵn
                 onError={() => {
                   setFaviconError(true);
                 }}
@@ -147,4 +152,4 @@ export function ProfileCard({ profile, onDelete, isDeleting = false, isPremium =
       <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-emerald-500/0 to-blue-500/0 group-hover:from-emerald-500/5 group-hover:to-blue-500/5 transition-all duration-300 pointer-events-none" />
     </div>
   );
-}
+});

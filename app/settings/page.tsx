@@ -2,7 +2,7 @@ import { getUser } from "@/lib/supabase/helpers";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
-import { isPremium, isAdmin } from "@/lib/membership";
+import { getUserMembership } from "@/lib/membership";
 import { UpgradeButton } from "@/components/UpgradeButton";
 
 export default async function SettingsPage() {
@@ -12,10 +12,10 @@ export default async function SettingsPage() {
     redirect("/login");
   }
 
-  const [userIsPremium, userIsAdmin] = await Promise.all([
-    isPremium(),
-    isAdmin(),
-  ]);
+  // Tối ưu: Gộp queries membership
+  const membership = await getUserMembership();
+  const userIsPremium = membership.isPremium;
+  const userIsAdmin = membership.isAdmin;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">

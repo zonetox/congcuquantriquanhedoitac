@@ -21,6 +21,7 @@ interface UserProfile {
 
 /**
  * Lấy user profile từ database
+ * Tối ưu: Không log trong production, chỉ log trong development
  */
 async function getUserProfile(): Promise<UserProfile | null> {
   const supabase = await createClient();
@@ -31,12 +32,8 @@ async function getUserProfile(): Promise<UserProfile | null> {
   } = await supabase.auth.getUser();
 
   if (userError || !user) {
-    console.log("[getUserProfile] No user found:", userError);
     return null;
   }
-
-  console.log("[getUserProfile] User ID:", user.id);
-  console.log("[getUserProfile] User Email:", user.email);
 
   // Query từ bảng user_profiles
   const { data: profile, error } = await supabase
@@ -46,24 +43,7 @@ async function getUserProfile(): Promise<UserProfile | null> {
     .single();
 
   if (error) {
-    console.error("[getUserProfile] Error querying user_profiles:", {
-      error: error.message,
-      code: error.code,
-      details: error.details,
-      hint: error.hint,
-      userId: user.id,
-    });
-    
-    // Nếu lỗi là "PGRST116" (no rows returned), có nghĩa là profile chưa tồn tại
-    // Nếu lỗi khác (ví dụ RLS policy chặn), vẫn trả về default nhưng log cảnh báo
-    if (error.code === "PGRST116") {
-      console.log("[getUserProfile] Profile not found (PGRST116), returning default");
-    } else {
-      console.warn("[getUserProfile] Query error (possibly RLS issue), returning default");
-    }
-    
     // Nếu không tìm thấy profile, trả về default
-    // (Có thể xảy ra nếu trigger chưa chạy hoặc user mới tạo)
     return {
       id: user.id,
       email: user.email || null,
@@ -74,7 +54,6 @@ async function getUserProfile(): Promise<UserProfile | null> {
   }
 
   if (!profile) {
-    console.log("[getUserProfile] Profile not found (null), returning default");
     return {
       id: user.id,
       email: user.email || null,
@@ -84,18 +63,36 @@ async function getUserProfile(): Promise<UserProfile | null> {
     };
   }
 
-  console.log("[getUserProfile] Profile found:", {
-    id: profile.id,
-    email: profile.email,
-    role: profile.role,
-    is_premium: profile.is_premium,
-  });
-
   return profile as UserProfile;
 }
 
 /**
+ * Lấy thông tin membership và role trong 1 query (tối ưu performance)
+ */
+export async function getUserMembership(): Promise<{
+  isPremium: boolean;
+  isAdmin: boolean;
+  role: "admin" | "user" | null;
+}> {
+  const profile = await getUserProfile();
+  if (!profile) {
+    return {
+      isPremium: false,
+      isAdmin: false,
+      role: null,
+    };
+  }
+
+  return {
+    isPremium: profile.is_premium === true,
+    isAdmin: profile.role === "admin",
+    role: profile.role === "admin" ? "admin" : "user",
+  };
+}
+
+/**
  * Kiểm tra xem user có phải Premium không
+ * ⚠️ Nếu cần cả isPremium và isAdmin, dùng getUserMembership() để tối ưu
  */
 export async function isPremium(): Promise<boolean> {
   const profile = await getUserProfile();
@@ -104,17 +101,11 @@ export async function isPremium(): Promise<boolean> {
 
 /**
  * Kiểm tra xem user có phải Admin không
+ * ⚠️ Nếu cần cả isPremium và isAdmin, dùng getUserMembership() để tối ưu
  */
 export async function isAdmin(): Promise<boolean> {
   const profile = await getUserProfile();
-  const isAdminResult = profile?.role === "admin";
-  console.log("[isAdmin] Result:", {
-    userId: profile?.id,
-    email: profile?.email,
-    role: profile?.role,
-    isAdmin: isAdminResult,
-  });
-  return isAdminResult;
+  return profile?.role === "admin";
 }
 
 /**

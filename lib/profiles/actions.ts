@@ -17,16 +17,10 @@ export async function addProfile(
     error: userError,
   } = await supabase.auth.getUser();
 
-  // Debug: Log user info
-  console.log("[addProfile] User check:", {
-    hasUser: !!user,
-    userId: user?.id,
-    userEmail: user?.email,
-    userError: userError?.message,
-  });
-
   if (userError || !user) {
-    console.error("[addProfile] Authentication error:", userError?.message || "No user found");
+    if (process.env.NODE_ENV === "development") {
+      console.error("[addProfile] Authentication error:", userError?.message || "No user found");
+    }
     return {
       error: "You need to sign in to add a profile. Please sign in first.",
       success: false,
@@ -37,7 +31,9 @@ export async function addProfile(
   try {
     new URL(url);
   } catch {
-    console.error("[addProfile] Invalid URL:", url);
+    if (process.env.NODE_ENV === "development") {
+      console.error("[addProfile] Invalid URL:", url);
+    }
     return {
       error: "Invalid URL. Please enter a full URL (e.g., https://example.com)",
       success: false,
@@ -53,8 +49,6 @@ export async function addProfile(
     category: category?.trim() || "General",
   };
 
-  console.log("[addProfile] Inserting profile:", profileData);
-
   // Insert profile
   const { data, error } = await supabase
     .from("profiles_tracked")
@@ -63,19 +57,19 @@ export async function addProfile(
     .single();
 
   if (error) {
-    console.error("[addProfile] Database error:", {
-      message: error.message,
-      details: error.details,
-      hint: error.hint,
-      code: error.code,
-    });
+    if (process.env.NODE_ENV === "development") {
+      console.error("[addProfile] Database error:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+      });
+    }
     return {
       error: error.message || "Unable to add profile. Please try again.",
       success: false,
     };
   }
-
-  console.log("[addProfile] Profile added successfully:", data);
 
   revalidatePath("/");
   return {
@@ -132,14 +126,11 @@ export async function getProfiles() {
   } = await supabase.auth.getUser();
 
   if (userError || !user) {
-    console.log("[getProfiles] No user found, returning empty array");
     return {
       data: [],
       error: null,
     };
   }
-
-  console.log("[getProfiles] Fetching profiles for user:", user.id);
 
   // Get profiles for current user
   const { data, error } = await supabase
@@ -149,19 +140,19 @@ export async function getProfiles() {
     .order("created_at", { ascending: false });
 
   if (error) {
-    console.error("[getProfiles] Database error:", {
-      message: error.message,
-      details: error.details,
-      hint: error.hint,
-      code: error.code,
-    });
+    if (process.env.NODE_ENV === "development") {
+      console.error("[getProfiles] Database error:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+      });
+    }
     return {
       data: [],
       error: error.message,
     };
   }
-
-  console.log("[getProfiles] Found profiles:", data?.length || 0);
 
   return {
     data: data || [],

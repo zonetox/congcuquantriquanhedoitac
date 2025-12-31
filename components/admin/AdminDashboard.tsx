@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Shield, Users, Globe, Calendar, Search } from "lucide-react";
 import { getDomainFromUrl, getFaviconUrl } from "@/lib/utils/url";
+import Image from "next/image";
 import type { Profile } from "@/lib/profiles/types";
 
 interface AdminDashboardProps {
@@ -164,10 +165,14 @@ export function AdminDashboard({ profiles, error }: AdminDashboardProps) {
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
-                        <img
+                        <Image
                           src={getFaviconUrl(profile.url)}
                           alt={getDomainFromUrl(profile.url)}
+                          width={32}
+                          height={32}
                           className="w-8 h-8 rounded"
+                          loading="lazy"
+                          unoptimized
                           onError={(e) => {
                             (e.target as HTMLImageElement).src = "/favicon.ico";
                           }}
