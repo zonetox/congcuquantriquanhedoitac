@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { X, Loader2, MessageSquare, Phone, Mail, MessageCircle, Plus } from "lucide-react";
 import { addInteractionLog, getInteractionLogs } from "@/lib/crm/actions";
+import { toggleFeedStatus } from "@/lib/profiles/actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import type { Profile } from "@/lib/profiles/types";
@@ -21,6 +22,8 @@ export function ProfileDetailsModal({ isOpen, onClose, profile }: ProfileDetails
   const [loading, setLoading] = useState(false);
   const [logs, setLogs] = useState<InteractionLog[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
+  const [isInFeed, setIsInFeed] = useState(profile.is_in_feed || false);
+  const [togglingFeed, setTogglingFeed] = useState(false);
 
   const loadLogs = async () => {
     setLoadingLogs(true);
@@ -61,6 +64,19 @@ export function ProfileDetailsModal({ isOpen, onClose, profile }: ProfileDetails
       router.refresh(); // Refresh to update last_interacted_at
     }
     setLoading(false);
+  };
+
+  const handleToggleFeed = async () => {
+    setTogglingFeed(true);
+    const result = await toggleFeedStatus(profile.id, !isInFeed);
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      setIsInFeed(!isInFeed);
+      toast.success(isInFeed ? "Removed from feed" : "Added to feed");
+      router.refresh();
+    }
+    setTogglingFeed(false);
   };
 
   if (!isOpen) return null;
@@ -124,6 +140,31 @@ export function ProfileDetailsModal({ isOpen, onClose, profile }: ProfileDetails
 
         {/* Content - Scrollable */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {/* Feed Toggle - Neumorphism Style */}
+          <div className="neu-card rounded-neu-lg p-6 shadow-soft-out">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-800 mb-1">Show in Newsfeed</h3>
+                <p className="text-sm text-slate-600">Enable to display posts from this profile in Newsfeed</p>
+              </div>
+              <button
+                onClick={handleToggleFeed}
+                disabled={togglingFeed}
+                className={`relative w-14 h-8 rounded-full transition-all duration-300 ${
+                  isInFeed
+                    ? "bg-gradient-to-r from-emerald-400 to-blue-400 shadow-soft-button"
+                    : "neu-icon-box shadow-soft-icon"
+                } disabled:opacity-50`}
+              >
+                <div
+                  className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-soft-button transition-transform duration-300 ${
+                    isInFeed ? "translate-x-6" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
           {/* Add Interaction Form */}
           <div className="neu-card rounded-neu-lg p-6 shadow-soft-out">
             <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">

@@ -9,11 +9,10 @@ export interface ApiKey {
   id: string;
   provider: string;
   api_key: string;
-  is_active: boolean;
+  status: "active" | "rate_limited" | "dead";
   quota_limit: number;
   current_usage: number;
   last_used_at: string | null;
-  error_count: number;
   created_at: string;
 }
 
@@ -93,10 +92,9 @@ export async function bulkImportApiKeys(
     const { error } = await supabase.from("api_key_pool").insert({
       provider,
       api_key: apiKey,
-      is_active: true,
+      status: "active",
       quota_limit: 100,
       current_usage: 0,
-      error_count: 0,
     });
 
     if (error) {
@@ -115,11 +113,11 @@ export async function bulkImportApiKeys(
 }
 
 /**
- * Toggle active status của API key
+ * Toggle status của API key (active <-> rate_limited)
  */
 export async function toggleApiKeyStatus(
   keyId: string,
-  isActive: boolean
+  status: "active" | "rate_limited" | "dead"
 ): Promise<{
   success: boolean;
   error: string | null;
@@ -135,7 +133,7 @@ export async function toggleApiKeyStatus(
   const supabase = createAdminClient();
   const { error } = await supabase
     .from("api_key_pool")
-    .update({ is_active: isActive })
+    .update({ status })
     .eq("id", keyId);
 
   if (error) {
@@ -197,7 +195,7 @@ export async function getValidApiKey(provider?: string): Promise<{
   let query = supabase
     .from("api_key_pool")
     .select("*")
-    .eq("is_active", true);
+    .eq("status", "active");
 
   if (provider) {
     query = query.eq("provider", provider);
@@ -240,12 +238,11 @@ export async function getValidApiKey(provider?: string): Promise<{
 }
 
 /**
- * Cập nhật usage và error count của API key sau khi sử dụng
+ * Cập nhật usage của API key sau khi sử dụng
  */
 export async function updateApiKeyUsage(
   keyId: string,
-  incrementUsage: boolean = true,
-  incrementError: boolean = false
+  incrementUsage: boolean = true
 ): Promise<{
   success: boolean;
   error: string | null;
@@ -272,62 +269,15 @@ export async function updateApiKeyUsage(
 
   if (incrementUsage) {
     updates.current_usage = (currentKey.current_usage || 0) + 1;
-  }
-
-  if (incrementError) {
-    const newErrorCount = (currentKey.error_count || 0) + 1;
-    updates.error_count = newErrorCount;
-    // Tự động khóa nếu error_count >= 5
-    updates.is_active = newErrorCount < 5;
+    // Tự động đánh dấu rate_limited nếu vượt quota
+    if (updates.current_usage >= (currentKey.quota_limit || 100)) {
+      updates.status = "rate_limited";
+    }
   }
 
   const { error } = await supabase
     .from("api_key_pool")
     .update(updates)
-    .eq("id", keyId);
-
-  if (error) {
-    return {
-      success: false,
-      error: error.message,
-    };
-  }
-
-  return {
-    success: true,
-    error: null,
-  };
-}
-
-/**
- * Đánh dấu API key là inactive khi nhận lỗi 429 (Too Many Requests)
- */
-export async function markApiKeyAsInactive(keyId: string): Promise<{
-  success: boolean;
-  error: string | null;
-}> {
-  const supabase = createAdminClient();
-
-  // Lấy key hiện tại để tính toán error_count
-  const { data: currentKey, error: fetchError } = await supabase
-    .from("api_key_pool")
-    .select("error_count")
-    .eq("id", keyId)
-    .single();
-
-  if (fetchError || !currentKey) {
-    return {
-      success: false,
-      error: fetchError?.message || "Key not found",
-    };
-  }
-
-  const { error } = await supabase
-    .from("api_key_pool")
-    .update({
-      is_active: false,
-      error_count: (currentKey.error_count || 0) + 1,
-    })
     .eq("id", keyId);
 
   if (error) {

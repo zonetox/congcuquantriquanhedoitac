@@ -47,12 +47,13 @@ export function ApiKeyManagement() {
     }
   };
 
-  const handleToggleStatus = async (keyId: string, currentStatus: boolean) => {
-    const result = await toggleApiKeyStatus(keyId, !currentStatus);
+  const handleToggleStatus = async (keyId: string, currentStatus: "active" | "rate_limited" | "dead") => {
+    const newStatus = currentStatus === "active" ? "rate_limited" : "active";
+    const result = await toggleApiKeyStatus(keyId, newStatus);
     if (result.error) {
       toast.error(result.error);
     } else {
-      toast.success(`API key ${!currentStatus ? "activated" : "deactivated"}`);
+      toast.success(`API key ${newStatus === "active" ? "activated" : "deactivated"}`);
       loadKeys();
       router.refresh();
     }
@@ -81,7 +82,7 @@ export function ApiKeyManagement() {
     );
   }
 
-  const activeKeys = keys.filter((k) => k.is_active).length;
+  const activeKeys = keys.filter((k) => k.status === "active").length;
   const totalKeys = keys.length;
   const totalUsage = keys.reduce((sum, k) => sum + k.current_usage, 0);
 
@@ -158,7 +159,7 @@ export function ApiKeyManagement() {
                   Usage
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Errors
+                  Quota
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                   Last Used
@@ -171,7 +172,7 @@ export function ApiKeyManagement() {
             <tbody className="divide-y divide-slate-200 dark:divide-gray-700">
               {keys.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center">
+                  <td colSpan={6} className="px-6 py-12 text-center">
                     <div className="space-y-2">
                       <Key className="w-12 h-12 text-slate-400 dark:text-slate-500 mx-auto" />
                       <p className="text-slate-500 dark:text-slate-400">No API keys yet. Import your first keys to get started.</p>
@@ -192,12 +193,14 @@ export function ApiKeyManagement() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
                         className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${
-                          key.is_active
+                          key.status === "active"
                             ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300"
+                            : key.status === "rate_limited"
+                            ? "bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300"
                             : "bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300"
                         }`}
                       >
-                        {key.is_active ? "Active" : "Inactive"}
+                        {key.status === "active" ? "Active" : key.status === "rate_limited" ? "Rate Limited" : "Dead"}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -218,17 +221,9 @@ export function ApiKeyManagement() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`text-sm font-medium ${
-                          key.error_count >= 5
-                            ? "text-red-600 dark:text-red-400"
-                            : key.error_count > 0
-                            ? "text-yellow-600 dark:text-yellow-400"
-                            : "text-slate-600 dark:text-slate-400"
-                        }`}
-                      >
-                        {key.error_count}
-                      </span>
+                      <div className="text-sm text-slate-600 dark:text-slate-400">
+                        {key.current_usage}/{key.quota_limit}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
                       {key.last_used_at
@@ -238,11 +233,11 @@ export function ApiKeyManagement() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => handleToggleStatus(key.id, key.is_active)}
+                          onClick={() => handleToggleStatus(key.id, key.status)}
                           className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
-                          title={key.is_active ? "Deactivate" : "Activate"}
+                          title={key.status === "active" ? "Deactivate" : "Activate"}
                         >
-                          {key.is_active ? (
+                          {key.status === "active" ? (
                             <ToggleRight className="w-5 h-5 text-emerald-600" />
                           ) : (
                             <ToggleLeft className="w-5 h-5 text-slate-400" />

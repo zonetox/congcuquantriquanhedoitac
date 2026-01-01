@@ -213,7 +213,106 @@ CREATE TABLE public.categories (
 - Customer (Blue)
 - Other (Violet)
 
-### 4. Bảng `public.admin_logs` ✅ Admin Activity Logging
+### 4. Bảng `public.api_key_pool` ✅ Newsfeed Module - API Key Pool
+
+**Mục đích**: Lưu trữ kho API keys để xoay vòng khi gọi API Scraper (Newsfeed Module v2A).
+
+**Schema chi tiết**:
+
+```sql
+CREATE TABLE public.api_key_pool (
+  id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
+  provider TEXT NOT NULL, -- 'RapidAPI', 'Apify', v.v.
+  api_key TEXT NOT NULL UNIQUE,
+  status TEXT DEFAULT 'active', -- 'active', 'rate_limited', 'dead'
+  quota_limit INT DEFAULT 100,
+  current_usage INT DEFAULT 0,
+  last_used_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+```
+
+**Chi tiết các trường**:
+
+| Trường | Kiểu | Ràng buộc | Mô tả |
+|--------|------|-----------|-------|
+| `id` | UUID | PRIMARY KEY | ID tự động |
+| `provider` | TEXT | NOT NULL | Tên provider (e.g., 'RapidAPI', 'Apify') |
+| `api_key` | TEXT | NOT NULL, UNIQUE | API key string |
+| `status` | TEXT | DEFAULT 'active' | Trạng thái: 'active', 'rate_limited', 'dead' |
+| `quota_limit` | INT | DEFAULT 100 | Giới hạn quota cho key này |
+| `current_usage` | INT | DEFAULT 0 | Số lần đã sử dụng |
+| `last_used_at` | TIMESTAMP WITH TIME ZONE | DEFAULT now() | Thời gian sử dụng cuối cùng |
+| `created_at` | TIMESTAMP WITH TIME ZONE | DEFAULT now() | Thời gian tạo |
+
+**Indexes** (Newsfeed v2A):
+- `idx_api_key_pool_provider_status` (BTREE) trên `(provider, status, current_usage)` - Tối ưu query getValidKey
+- `idx_api_key_pool_status` (BTREE) trên `status` WHERE `status = 'active'` - Tối ưu filter active keys
+- `idx_api_key_pool_last_used` (BTREE) trên `last_used_at DESC NULLS LAST` - Tối ưu sort theo thời gian sử dụng
+
+**Row Level Security (RLS)**:
+- ✅ RLS đã được bật
+- Policy: "Admin manage keys" (ALL operations)
+- Chỉ admin mới có thể quản lý API keys: `is_admin_user() = true`
+
+**⚠️ QUAN TRỌNG**: 
+- API keys được xoay vòng tự động khi gặp lỗi 429 (Rate Limit)
+- Key tự động chuyển sang `rate_limited` khi vượt quota
+- Key tự động chuyển sang `dead` sau nhiều lần lỗi
+
+### 5. Bảng `public.profile_posts` ✅ Newsfeed Module - Posts
+
+**Mục đích**: Lưu trữ các bài đăng từ profiles được theo dõi (Newsfeed Module v2A).
+
+**Schema chi tiết**:
+
+```sql
+CREATE TABLE public.profile_posts (
+  id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
+  profile_id UUID REFERENCES public.profiles_tracked(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id),
+  content TEXT,
+  post_url TEXT,
+  image_url TEXT,
+  published_at TIMESTAMP WITH TIME ZONE,
+  ai_analysis JSONB, -- Lưu tóm tắt và Sales Signals sau này
+  ai_suggestions JSONB, -- Lưu Ice Breakers sau này
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+```
+
+**Chi tiết các trường**:
+
+| Trường | Kiểu | Ràng buộc | Mô tả |
+|--------|------|-----------|-------|
+| `id` | UUID | PRIMARY KEY | ID tự động |
+| `profile_id` | UUID | FOREIGN KEY → profiles_tracked(id) | ID của profile tạo post này |
+| `user_id` | UUID | FOREIGN KEY → auth.users(id) | ID của user sở hữu profile |
+| `content` | TEXT | NULLABLE | Nội dung bài đăng |
+| `post_url` | TEXT | NULLABLE | Link đến bài đăng gốc |
+| `image_url` | TEXT | NULLABLE | Link đến hình ảnh bài đăng (nếu có) |
+| `published_at` | TIMESTAMP WITH TIME ZONE | NULLABLE | Thời gian đăng bài (từ source) |
+| `ai_analysis` | JSONB | NULLABLE | Phân tích AI (tóm tắt, Sales Signals) - coming soon |
+| `ai_suggestions` | JSONB | NULLABLE | Gợi ý AI (Ice Breakers) - coming soon |
+| `created_at` | TIMESTAMP WITH TIME ZONE | DEFAULT now() | Thời gian tạo record |
+
+**Indexes** (Newsfeed v2A):
+- `idx_profile_posts_profile_id` (BTREE) trên `profile_id` - Tối ưu query posts theo profile
+- `idx_profile_posts_user_id` (BTREE) trên `user_id` - Tối ưu query posts theo user
+- `idx_profile_posts_user_published` (BTREE) trên `(user_id, published_at DESC NULLS LAST)` - Tối ưu Newsfeed queries
+- `idx_profile_posts_created_at` (BTREE) trên `created_at DESC` - Tối ưu sort theo thời gian tạo
+
+**Row Level Security (RLS)**:
+- ✅ RLS đã được bật
+- Policy: "Users view own posts" (SELECT)
+- Chỉ cho phép user xem posts của chính họ: `auth.uid() = user_id`
+
+**⚠️ QUAN TRỌNG**: 
+- Posts được tự động xóa khi profile bị xóa (CASCADE)
+- Chỉ hiển thị posts từ profiles có `is_in_feed = true`
+- `published_at` có thể NULL nếu không lấy được từ source
+
+### 6. Bảng `public.admin_logs` ✅ Admin Activity Logging
 
 **Mục đích**: Lưu trữ log các hành động của Admin để audit và theo dõi.
 
@@ -261,6 +360,8 @@ Partner Relationship Management/
 │   │       └── route.ts
 │   ├── login/                    # Login/Register page
 │   │   └── page.tsx
+│   ├── feed/                     # ✅ Newsfeed page (Newsfeed v2A)
+│   │   └── page.tsx              # Newsfeed với Neumorphism UI
 │   ├── solutions/                # ✅ Solutions page (v3.1)
 │   │   └── page.tsx              # Deep-dive solutions page for prospects
 │   ├── settings/                 # Settings page
@@ -275,8 +376,13 @@ Partner Relationship Management/
 │   ├── auth/                     # Auth components
 │   │   └── login-form.tsx        # Login/Register form
 │   ├── AddProfileForm.tsx        # ⚠️ DEPRECATED: Dùng AddProfileModal thay thế
+│   ├── admin/                    # Admin components
+│   │   ├── AdminDashboard.tsx    # Admin dashboard với danh sách tất cả profiles
+│   │   └── ApiKeyManagement.tsx  # ✅ API Key Management component (Newsfeed v2A)
 │   ├── AddProfileModal.tsx       # ✅ Modal form để thêm profile
 │   ├── EditProfileModal.tsx      # ✅ Modal form để chỉnh sửa profile (v3.2)
+│   ├── ProfileDetailsModal.tsx   # ✅ Modal hiển thị chi tiết profile và interaction logs (CRM v1.0)
+│   ├── FeedContent.tsx           # ✅ Newsfeed content component (Newsfeed v2A)
 │   ├── DashboardContent.tsx     # Dashboard container
 │   ├── Header.tsx                # ✅ Header component (mobile + desktop)
 │   ├── LandingPage.tsx           # Landing page (chưa đăng nhập)
@@ -299,6 +405,13 @@ Partner Relationship Management/
 │   │   └── types.ts              # TypeScript types cho Profile
 │   ├── categories/               # ✅ Category management
 │   │   └── actions.ts            # Server actions: getCategories, createCategory, updateCategory, deleteCategory
+│   ├── feed/                     # ✅ Newsfeed management (Newsfeed v2A)
+│   │   ├── actions.ts            # Server actions: getFeedPosts, syncFeed
+│   │   └── types.ts              # Types cho FeedPost
+│   ├── api-keys/                 # ✅ API Key management (Newsfeed v2A)
+│   │   └── actions.ts            # Server actions: getAllApiKeys, bulkImportApiKeys, toggleApiKeyStatus, deleteApiKey
+│   ├── scrapers/                 # ✅ API Scraper utilities (Newsfeed v2A)
+│   │   └── api-rotator.ts        # API rotation logic: getValidKey, fetchWithRotation
 │   ├── admin/                    # ✅ Admin management
 │   │   └── actions.ts            # Admin actions: getAllUsers, updateUser, deleteUser, updateProfile, deleteProfileAsAdmin
 │   ├── supabase/                 # Supabase clients
