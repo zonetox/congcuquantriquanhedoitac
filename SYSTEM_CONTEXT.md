@@ -44,7 +44,9 @@ CREATE TABLE public.profiles_tracked (
   category TEXT NULL DEFAULT 'General',
   notes TEXT NULL,
   has_new_update BOOLEAN NULL DEFAULT false,
+  is_in_feed BOOLEAN NULL DEFAULT false,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now()),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
   CONSTRAINT profiles_tracked_pkey PRIMARY KEY (id),
   CONSTRAINT profiles_tracked_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
@@ -62,21 +64,41 @@ CREATE TABLE public.profiles_tracked (
 | `category` | TEXT | NULLABLE, DEFAULT 'General' | Phân loại: Có thể là default categories hoặc custom categories từ bảng `categories` |
 | `notes` | TEXT | NULLABLE | Ghi chú cá nhân (Premium feature) |
 | `has_new_update` | BOOLEAN | NULLABLE, DEFAULT false | Flag để đánh dấu có update mới (AI feature - coming soon) |
-| `is_in_feed` | BOOLEAN | NULLABLE, DEFAULT false | User có muốn đưa profile này vào Newsfeed không |
+| `is_in_feed` | BOOLEAN | NULLABLE, DEFAULT false | User có muốn đưa profile này vào Newsfeed không (v3.2) |
 | `created_at` | TIMESTAMP WITH TIME ZONE | NOT NULL, DEFAULT now() | Thời gian tạo record |
+| `updated_at` | TIMESTAMP WITH TIME ZONE | NULLABLE, DEFAULT now() | Thời gian cập nhật record (tự động cập nhật bởi trigger) (v3.2) |
 
-**Indexes**:
+**Indexes** (v3.2):
+- `profiles_tracked_pkey` (UNIQUE) trên `id` - Primary key index
 - `idx_profiles_user_id` (BTREE) trên `user_id` - Tối ưu query theo user
+- `idx_profiles_created_at` (BTREE) trên `created_at DESC` - Tối ưu sorting theo thời gian tạo
+- `idx_profiles_tracked_category` (BTREE) trên `category` WHERE `category IS NOT NULL` - Tối ưu filter theo category (v3.2)
+- `idx_profiles_tracked_is_in_feed` (BTREE) trên `(user_id, is_in_feed)` WHERE `is_in_feed = true` - Tối ưu Newsfeed queries (v3.2)
+- `idx_profiles_tracked_updated_at` (BTREE) trên `updated_at DESC` - Tối ưu sorting theo thời gian update (v3.2)
 
 **Row Level Security (RLS)**:
 - ✅ RLS đã được bật
-- Policy: "Users can manage their own tracked profiles"
-- Chỉ cho phép user xem/sửa/xóa profiles của chính họ: `auth.uid() = user_id`
+- Policy: "Users can manage their own tracked profiles" (ALL operations)
+  - SELECT: Users chỉ thấy profiles của chính họ
+  - INSERT: Users chỉ có thể tạo profiles cho chính họ
+  - UPDATE: Users chỉ có thể update profiles của chính họ
+  - DELETE: Users chỉ có thể xóa profiles của chính họ
+- Policy: "Profiles access policy" (ALL operations với admin support)
+  - Cho phép admin truy cập tất cả profiles thông qua `is_admin_user()` function
+- Condition: `auth.uid() = user_id` hoặc `is_admin_user() = true`
+
+**Triggers** (v3.2):
+- ✅ `update_profiles_tracked_updated_at`: Tự động cập nhật `updated_at = NOW()` mỗi khi có UPDATE
+  - Function: `update_profiles_tracked_updated_at()`
+  - Event: `BEFORE UPDATE ON profiles_tracked`
+  - Logic: Set `NEW.updated_at = timezone('utc'::text, now())`
 
 **⚠️ QUAN TRỌNG**: 
 - **KHÔNG** tự ý thêm cột mới vào bảng này trừ khi có yêu cầu rõ ràng
 - **LUÔN** sử dụng đúng tên bảng `profiles_tracked` (không phải `profiles` hay `tracked_profiles`)
 - **LUÔN** kiểm tra `user_id` khi query để đảm bảo security
+- **Trigger tự động**: `updated_at` được tự động cập nhật bởi trigger, không cần set thủ công
+- **Indexes**: Đã được tối ưu cho category filter và Newsfeed queries (v3.2)
 
 ---
 
@@ -1176,6 +1198,19 @@ Trước khi commit code, đảm bảo:
 **Maintained by**: Development Team
 
 **🔄 Recent Updates** (2024-12-19):
+
+**Database Setup Complete** (v3.2.0):
+- ✅ **Schema Updates**: Thêm `updated_at` và `is_in_feed` columns vào `profiles_tracked` table
+- ✅ **Indexes Created**: Tạo 6 indexes để tối ưu performance
+  - Primary key index
+  - User ID index
+  - Created at index (DESC sorting)
+  - Category index (partial index cho filter)
+  - Is in feed index (composite index cho Newsfeed queries)
+  - Updated at index (DESC sorting)
+- ✅ **Trigger Created**: Trigger tự động cập nhật `updated_at` mỗi khi profile được update
+- ✅ **RLS Policies Verified**: Policies đã được kiểm tra và hoạt động đúng
+- ✅ **Database Ready**: Database đã sẵn sàng cho production với đầy đủ tính năng v3.2
 
 **Dashboard Category Tabs & Profile Editing** (v3.2.0):
 - ✅ **Category Tabs**: Dashboard hiển thị tabs theo category với số lượng profiles và màu nền theo category color
