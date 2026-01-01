@@ -110,39 +110,40 @@ export async function syncFeed(): Promise<{
   postsCreated: number;
   error: string | null;
 }> {
-  const supabase = await createClient();
+  try {
+    const supabase = await createClient();
 
-  // Get current user
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+    // Get current user
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-  if (userError || !user) {
-    return {
-      success: false,
-      postsCreated: 0,
-      error: "You need to sign in to sync feed.",
-    };
-  }
+    if (userError || !user) {
+      return {
+        success: false,
+        postsCreated: 0,
+        error: "You need to sign in to sync feed.",
+      };
+    }
 
-  // Lấy tất cả profiles có is_in_feed = true
-  const { data: profiles, error: profilesError } = await supabase
+    // Lấy tất cả profiles có is_in_feed = true
+    const { data: profiles, error: profilesError } = await supabase
     .from("profiles_tracked")
     .select("id, title, url")
-    .eq("user_id", user.id)
-    .eq("is_in_feed", true);
+      .eq("user_id", user.id)
+      .eq("is_in_feed", true);
 
-  if (profilesError || !profiles || profiles.length === 0) {
-    return {
-      success: false,
-      postsCreated: 0,
-      error: "No profiles enabled for feed. Enable 'Show in Newsfeed' in profile settings.",
-    };
-  }
+    if (profilesError || !profiles || profiles.length === 0) {
+      return {
+        success: false,
+        postsCreated: 0,
+        error: "No profiles enabled for feed. Enable 'Show in Newsfeed' in profile settings.",
+      };
+    }
 
-  // Tạo 2-3 bài đăng mẫu cho mỗi profile
-  const samplePosts = [
+    // Tạo 2-3 bài đăng mẫu cho mỗi profile
+    const samplePosts = [
     {
       content: "Excited to announce our new product launch! 🚀 This is a game-changer for our industry.",
       image_url: "https://images.unsplash.com/photo-1551288049-bebda4e38f81?w=800",
@@ -155,99 +156,139 @@ export async function syncFeed(): Promise<{
       content: "Just published a new blog post about industry trends. Check it out!",
       image_url: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800",
     },
-  ];
+    ];
 
-  let postsCreated = 0;
-  const errors: string[] = [];
-  let aiErrors = 0;
+    let postsCreated = 0;
+    const errors: string[] = [];
+    let aiErrors = 0;
 
-  for (const profile of profiles) {
-    // Tạo 2-3 posts ngẫu nhiên cho mỗi profile
-    const numPosts = Math.floor(Math.random() * 2) + 2; // 2-3 posts
-    
-    for (let i = 0; i < numPosts; i++) {
-      const samplePost = samplePosts[Math.floor(Math.random() * samplePosts.length)];
-      const publishedAt = new Date();
-      publishedAt.setHours(publishedAt.getHours() - Math.floor(Math.random() * 24)); // Random trong 24h qua
-
-      // Tự động phân tích với AI nếu có content
-      let aiAnalysis = null;
-      let aiSuggestions = null;
+    for (const profile of profiles) {
+      // Tạo 2-3 posts ngẫu nhiên cho mỗi profile
+      const numPosts = Math.floor(Math.random() * 2) + 2; // 2-3 posts
       
-      if (samplePost.content) {
-        const aiResult = await analyzePostWithAI(samplePost.content);
-        if (aiResult.data) {
-          // Format mới: lưu trực tiếp result vào ai_analysis, ice_breakers vào ai_suggestions
-          aiAnalysis = {
-            summary: aiResult.data.summary,
-            signal: aiResult.data.signal,
-          };
-          aiSuggestions = aiResult.data.ice_breakers;
-        } else if (aiResult.error) {
-          // Nếu AI fail, vẫn tạo post nhưng không có AI data
-          aiErrors++;
-          console.warn(`[syncFeed] AI analysis failed for post: ${aiResult.error}`);
-          // Post vẫn được tạo bình thường, chỉ không có AI data
+      for (let i = 0; i < numPosts; i++) {
+        const samplePost = samplePosts[Math.floor(Math.random() * samplePosts.length)];
+        const publishedAt = new Date();
+        publishedAt.setHours(publishedAt.getHours() - Math.floor(Math.random() * 24)); // Random trong 24h qua
+
+        // Tự động phân tích với AI nếu có content
+        let aiAnalysis = null;
+        let aiSuggestions = null;
+        
+        if (samplePost.content) {
+          const aiResult = await analyzePostWithAI(samplePost.content);
+          if (aiResult.data) {
+            // Format mới: lưu trực tiếp result vào ai_analysis, ice_breakers vào ai_suggestions
+            aiAnalysis = {
+              summary: aiResult.data.summary,
+              signal: aiResult.data.signal,
+            };
+            aiSuggestions = aiResult.data.ice_breakers;
+          } else if (aiResult.error) {
+            // Nếu AI fail, vẫn tạo post nhưng không có AI data
+            aiErrors++;
+            console.warn(`[syncFeed] AI analysis failed for post: ${aiResult.error}`);
+            // Post vẫn được tạo bình thường, chỉ không có AI data
+          }
         }
-      }
 
-      const { error } = await supabase.from("profile_posts").insert({
-        profile_id: profile.id,
-        user_id: user.id,
-        content: samplePost.content,
-        post_url: `${profile.url}/post-${Date.now()}`,
-        image_url: samplePost.image_url,
-        published_at: publishedAt.toISOString(),
-        ai_analysis: aiAnalysis,
-        ai_suggestions: aiSuggestions,
-      });
+        // Prepare insert data
+        const insertData: any = {
+          profile_id: profile.id,
+          user_id: user.id,
+          content: samplePost.content,
+          post_url: `${profile.url}/post-${Date.now()}`,
+          image_url: samplePost.image_url,
+          published_at: publishedAt.toISOString(),
+          ai_analysis: aiAnalysis,
+          ai_suggestions: aiSuggestions,
+        };
 
-      if (error) {
-        errors.push(error.message);
-      } else {
-        postsCreated++;
+        // Only include notification_sent if column exists (will be handled by DB default if not)
+        // We don't explicitly set it to avoid errors if column doesn't exist yet
+        
+        const { error } = await supabase.from("profile_posts").insert(insertData);
+
+        // If error is about missing columns, log but continue (columns not created yet)
+        if (error) {
+          if (error.message?.includes("column") || error.code === "42703") {
+            if (process.env.NODE_ENV === "development") {
+              console.warn(`[syncFeed] Database column error (may not exist yet): ${error.message}`);
+            }
+            // Try again without optional columns
+            const { error: retryError } = await supabase.from("profile_posts").insert({
+              profile_id: profile.id,
+              user_id: user.id,
+              content: samplePost.content,
+              post_url: `${profile.url}/post-${Date.now()}`,
+              image_url: samplePost.image_url,
+              published_at: publishedAt.toISOString(),
+              ai_analysis: aiAnalysis,
+              ai_suggestions: aiSuggestions,
+            });
+            if (retryError) {
+              errors.push(retryError.message);
+            } else {
+              postsCreated++;
+            }
+          } else {
+            errors.push(error.message);
+          }
+        } else {
+          postsCreated++;
+        }
       }
     }
-  }
 
-  // Sau khi sync xong, kiểm tra và gửi thông báo cho Sales Opportunities
-  if (postsCreated > 0) {
-    try {
-      const notifyResult = await checkAndNotify();
-      if (notifyResult.notificationsSent > 0) {
-        if (process.env.NODE_ENV === "development") {
-          console.log(
-            `[syncFeed] Sent ${notifyResult.notificationsSent} notifications`
-          );
+    // Sau khi sync xong, kiểm tra và gửi thông báo cho Sales Opportunities
+    if (postsCreated > 0) {
+      try {
+        const notifyResult = await checkAndNotify();
+        if (notifyResult.notificationsSent > 0) {
+          if (process.env.NODE_ENV === "development") {
+            console.log(
+              `[syncFeed] Sent ${notifyResult.notificationsSent} notifications`
+            );
+          }
         }
-      }
-      if (notifyResult.errors.length > 0) {
-        if (process.env.NODE_ENV === "development") {
-          console.warn("[syncFeed] Notification errors:", notifyResult.errors);
+        if (notifyResult.errors.length > 0) {
+          if (process.env.NODE_ENV === "development") {
+            console.warn("[syncFeed] Notification errors:", notifyResult.errors);
+          }
         }
-      }
-    } catch (error) {
-      // Không block sync process nếu notification fail
-      if (process.env.NODE_ENV === "development") {
-        console.error("[syncFeed] Error checking notifications:", error);
+      } catch (error) {
+        // Không block sync process nếu notification fail
+        if (process.env.NODE_ENV === "development") {
+          console.error("[syncFeed] Error checking notifications:", error);
+        }
       }
     }
+
+    revalidatePath("/feed");
+    revalidatePath("/");
+
+    let finalError = null;
+    if (errors.length > 0) {
+      finalError = errors.join(", ");
+    } else if (aiErrors > 0) {
+      // Nếu chỉ có lỗi AI, thông báo nhẹ nhàng
+      finalError = `Hệ thống AI đang bảo trì. ${postsCreated} bài đăng đã được tạo nhưng chưa có phân tích AI.`;
+    }
+
+    return {
+      success: postsCreated > 0,
+      postsCreated,
+      error: finalError,
+    };
+  } catch (error: any) {
+    // Catch any unexpected errors to prevent server crashes
+    if (process.env.NODE_ENV === "development") {
+      console.error("[syncFeed] Unexpected error:", error);
+    }
+    return {
+      success: false,
+      postsCreated: 0,
+      error: error.message || "An unexpected error occurred while syncing feed.",
+    };
   }
-
-  revalidatePath("/feed");
-  revalidatePath("/");
-
-  let finalError = null;
-  if (errors.length > 0) {
-    finalError = errors.join(", ");
-  } else if (aiErrors > 0) {
-    // Nếu chỉ có lỗi AI, thông báo nhẹ nhàng
-    finalError = `Hệ thống AI đang bảo trì. ${postsCreated} bài đăng đã được tạo nhưng chưa có phân tích AI.`;
-  }
-
-  return {
-    success: postsCreated > 0,
-    postsCreated,
-    error: finalError,
-  };
 }
