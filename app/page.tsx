@@ -19,7 +19,13 @@ export default async function Home() {
   // Tối ưu: Gộp queries membership, profiles và categories
   // Wrap in try-catch to prevent server crashes
   let profiles = null;
-  let membership = { isPremium: false, isAdmin: false, hasValidPremium: false, trialStatus: { daysLeft: null, isActive: false, isExpired: false } };
+  let membership: Awaited<ReturnType<typeof getUserMembership>> = {
+    isPremium: false,
+    isAdmin: false,
+    role: null,
+    hasValidPremium: false,
+    trialStatus: { daysLeft: null, isActive: false, isExpired: false }
+  };
   let categories = null;
 
   try {

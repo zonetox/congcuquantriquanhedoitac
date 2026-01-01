@@ -15,7 +15,13 @@ export default async function AdminPage() {
 
   // Kiểm tra admin role và membership (tối ưu: 1 query thay vì 2)
   // Wrap in try-catch to prevent server crashes
-  let membership = { isPremium: false, isAdmin: false, hasValidPremium: false, trialStatus: { daysLeft: null, isActive: false, isExpired: false } };
+  let membership: Awaited<ReturnType<typeof getUserMembership>> = {
+    isPremium: false,
+    isAdmin: false,
+    role: null,
+    hasValidPremium: false,
+    trialStatus: { daysLeft: null, isActive: false, isExpired: false }
+  };
   
   try {
     membership = await getUserMembership();
