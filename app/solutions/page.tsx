@@ -31,15 +31,15 @@ export default function SolutionsPage() {
                 Social media algorithms are silently sabotaging your business relationships.
               </p>
               <p>
-                Every day, Facebook and LinkedIn's algorithms decide what you see and what you don't. 
-                If you haven't interacted with someone recently—even if they're your most important client 
+                Every day, Facebook and LinkedIn&apos;s algorithms decide what you see and what you don&apos;t. 
+                If you haven&apos;t interacted with someone recently—even if they&apos;re your most important client 
                 or partner—their posts get buried in your feed. You might see 20% of their updates, 
                 or worse, none at all.
               </p>
               <p>
-                This isn't just inconvenient—it's costing you deals. While you're scrolling through 
+                This isn&apos;t just inconvenient—it&apos;s costing you deals. While you&apos;re scrolling through 
                 irrelevant content, your competitors are responding to opportunities you never even saw. 
-                While you're manually checking 5 different platforms for 2 hours daily, your sales 
+                While you&apos;re manually checking 5 different platforms for 2 hours daily, your sales 
                 pipeline is leaking.
               </p>
               <p className="font-semibold text-emerald-700 dark:text-emerald-400">

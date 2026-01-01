@@ -50,7 +50,7 @@ export function LandingPage() {
                   The Problem:
                 </p>
                 <p className="text-slate-600 leading-relaxed">
-                  Facebook/LinkedIn algorithms hide posts from important people if you don't interact frequently.
+                  Facebook/LinkedIn algorithms hide posts from important people if you don&apos;t interact frequently.
                 </p>
               </div>
               <div>
@@ -86,7 +86,7 @@ export function LandingPage() {
                   The Solution:
                 </p>
                 <p className="text-slate-600 leading-relaxed">
-                  Just 5 minutes on Partner Center's focused Newsfeed. Time saved = Money earned.
+                  Just 5 minutes on Partner Center&apos;s focused Newsfeed. Time saved = Money earned.
                 </p>
               </div>
             </div>
@@ -114,7 +114,7 @@ export function LandingPage() {
                   The Solution:
                 </p>
                 <p className="text-slate-600 leading-relaxed">
-                  A lean, "just enough" tool with pricing starting from just $5 - $10/month.
+                  A lean, &quot;just enough&quot; tool with pricing starting from just $5 - $10/month.
                 </p>
               </div>
             </div>
@@ -134,7 +134,7 @@ export function LandingPage() {
                   The Problem:
                 </p>
                 <p className="text-slate-600 leading-relaxed">
-                  You know customers posted, but don't know what to say, or miss when they're showing buying signals.
+                  You know customers posted, but don&apos;t know what to say, or miss when they&apos;re showing buying signals.
                 </p>
               </div>
               <div>
