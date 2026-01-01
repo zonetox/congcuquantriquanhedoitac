@@ -26,59 +26,67 @@ interface UserProfile {
  * Tối ưu: Không log trong production, chỉ log trong development
  */
 async function getUserProfile(): Promise<UserProfile | null> {
-  const supabase = await createClient();
-  
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+  try {
+    const supabase = await createClient();
+    
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-  if (userError || !user) {
+    if (userError || !user) {
+      return null;
+    }
+
+    // Query từ bảng user_profiles
+    const { data: profile, error } = await supabase
+      .from("user_profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single();
+
+    if (error) {
+      // Nếu không tìm thấy profile, trả về default với trial_started_at = now
+      return {
+        id: user.id,
+        email: user.email || null,
+        role: "user",
+        is_premium: false,
+        trial_started_at: new Date().toISOString(),
+        locale: "en",
+        updated_at: new Date().toISOString(),
+      };
+    }
+
+    if (!profile) {
+      return {
+        id: user.id,
+        email: user.email || null,
+        role: "user",
+        is_premium: false,
+        trial_started_at: new Date().toISOString(),
+        locale: "en",
+        updated_at: new Date().toISOString(),
+      };
+    }
+
+    // Nếu trial_started_at chưa có, set mặc định là now (cho users cũ)
+    if (!profile.trial_started_at) {
+      return {
+        ...profile,
+        trial_started_at: new Date().toISOString(),
+        locale: (profile as any).locale || "en",
+      } as UserProfile;
+    }
+
+    return profile as UserProfile;
+  } catch (error) {
+    // Catch any unexpected errors and return null
+    if (process.env.NODE_ENV === "development") {
+      console.error("[getUserProfile] Unexpected error:", error);
+    }
     return null;
   }
-
-  // Query từ bảng user_profiles
-  const { data: profile, error } = await supabase
-    .from("user_profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
-
-  if (error) {
-    // Nếu không tìm thấy profile, trả về default với trial_started_at = now
-    return {
-      id: user.id,
-      email: user.email || null,
-      role: "user",
-      is_premium: false,
-      trial_started_at: new Date().toISOString(),
-      locale: "en",
-      updated_at: new Date().toISOString(),
-    };
-  }
-
-  if (!profile) {
-    return {
-      id: user.id,
-      email: user.email || null,
-      role: "user",
-      is_premium: false,
-      trial_started_at: new Date().toISOString(),
-      locale: "en",
-      updated_at: new Date().toISOString(),
-    };
-  }
-
-  // Nếu trial_started_at chưa có, set mặc định là now (cho users cũ)
-  if (!profile.trial_started_at) {
-    return {
-      ...profile,
-      trial_started_at: new Date().toISOString(),
-      locale: (profile as any).locale || "en",
-    } as UserProfile;
-  }
-
-  return profile as UserProfile;
 }
 
 /**
@@ -159,20 +167,21 @@ export async function getUserMembership(): Promise<{
     isExpired: boolean;
   };
 }> {
-  const profile = await getUserProfile();
-  if (!profile) {
-    return {
-      isPremium: false,
-      isAdmin: false,
-      role: null,
-      hasValidPremium: false,
-      trialStatus: {
-        daysLeft: null,
-        isActive: false,
-        isExpired: false,
-      },
-    };
-  }
+  try {
+    const profile = await getUserProfile();
+    if (!profile) {
+      return {
+        isPremium: false,
+        isAdmin: false,
+        role: null,
+        hasValidPremium: false,
+        trialStatus: {
+          daysLeft: null,
+          isActive: false,
+          isExpired: false,
+        },
+      };
+    }
 
   const hasValidPremium = profile.is_premium === true || (profile.trial_started_at ? isInTrialPeriod(profile.trial_started_at) : false);
   
@@ -195,13 +204,30 @@ export async function getUserMembership(): Promise<{
     };
   }
 
-  return {
-    isPremium: profile.is_premium === true,
-    isAdmin: profile.role === "admin",
-    role: profile.role === "admin" ? "admin" : "user",
-    hasValidPremium,
-    trialStatus,
-  };
+    return {
+      isPremium: profile.is_premium === true,
+      isAdmin: profile.role === "admin",
+      role: profile.role === "admin" ? "admin" : "user",
+      hasValidPremium,
+      trialStatus,
+    };
+  } catch (error) {
+    // Catch any unexpected errors and return safe defaults
+    if (process.env.NODE_ENV === "development") {
+      console.error("[getUserMembership] Unexpected error:", error);
+    }
+    return {
+      isPremium: false,
+      isAdmin: false,
+      role: null,
+      hasValidPremium: false,
+      trialStatus: {
+        daysLeft: null,
+        isActive: false,
+        isExpired: false,
+      },
+    };
+  }
 }
 
 /**

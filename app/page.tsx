@@ -17,11 +17,43 @@ export default async function Home() {
 
   // If user is logged in, show dashboard
   // Tối ưu: Gộp queries membership, profiles và categories
-  const [{ data: profiles }, membership, { data: categories }] = await Promise.all([
-    getProfiles(),
-    getUserMembership(),
-    getCategories(),
-  ]);
+  // Wrap in try-catch to prevent server crashes
+  let profiles = null;
+  let membership = { isPremium: false, isAdmin: false, hasValidPremium: false, trialStatus: { daysLeft: null, isActive: false, isExpired: false } };
+  let categories = null;
+
+  try {
+    const [profilesResult, membershipResult, categoriesResult] = await Promise.all([
+      getProfiles().catch((err) => {
+        if (process.env.NODE_ENV === "development") {
+          console.error("[Home] Error fetching profiles:", err);
+        }
+        return { data: null, error: "Failed to load profiles" };
+      }),
+      getUserMembership().catch((err) => {
+        if (process.env.NODE_ENV === "development") {
+          console.error("[Home] Error fetching membership:", err);
+        }
+        return { isPremium: false, isAdmin: false, hasValidPremium: false, trialStatus: { daysLeft: null, isActive: false, isExpired: false } };
+      }),
+      getCategories().catch((err) => {
+        if (process.env.NODE_ENV === "development") {
+          console.error("[Home] Error fetching categories:", err);
+        }
+        return { data: null, error: "Failed to load categories" };
+      }),
+    ]);
+    
+    profiles = profilesResult.data;
+    membership = membershipResult;
+    categories = categoriesResult.data;
+  } catch (error) {
+    // Fallback values if all queries fail
+    if (process.env.NODE_ENV === "development") {
+      console.error("[Home] Unexpected error:", error);
+    }
+  }
+
   const userIsPremium = membership.isPremium;
   const userIsAdmin = membership.isAdmin;
   const hasValidPremium = membership.hasValidPremium;

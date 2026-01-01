@@ -15,7 +15,18 @@ export default async function SettingsPage() {
   }
 
   // Tối ưu: Gộp queries membership
-  const membership = await getUserMembership();
+  // Wrap in try-catch to prevent server crashes
+  let membership = { isPremium: false, isAdmin: false, hasValidPremium: false, trialStatus: { daysLeft: null, isActive: false, isExpired: false } };
+  
+  try {
+    membership = await getUserMembership();
+  } catch (error) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("[SettingsPage] Error fetching membership:", error);
+    }
+    // Use default values if fetch fails
+  }
+
   const userIsPremium = membership.isPremium;
   const userIsAdmin = membership.isAdmin;
 

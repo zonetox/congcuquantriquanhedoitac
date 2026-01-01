@@ -14,13 +14,37 @@ export default async function AdminPage() {
   }
 
   // Kiểm tra admin role và membership (tối ưu: 1 query thay vì 2)
-  const membership = await getUserMembership();
+  // Wrap in try-catch to prevent server crashes
+  let membership = { isPremium: false, isAdmin: false, hasValidPremium: false, trialStatus: { daysLeft: null, isActive: false, isExpired: false } };
+  
+  try {
+    membership = await getUserMembership();
+  } catch (error) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("[AdminPage] Error fetching membership:", error);
+    }
+    // Use default values if fetch fails
+  }
+
   if (!membership.isAdmin) {
     redirect("/");
   }
 
   // Lấy tất cả profiles
-  const { data: profiles, error } = await getAllProfiles();
+  let profiles = null;
+  let error = null;
+  
+  try {
+    const result = await getAllProfiles();
+    profiles = result.data;
+    error = result.error;
+  } catch (err) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("[AdminPage] Error fetching profiles:", err);
+    }
+    error = "Failed to load profiles";
+  }
+
   const userIsPremium = membership.isPremium;
   const userIsAdmin = membership.isAdmin;
 
