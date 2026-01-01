@@ -61,30 +61,51 @@ export async function updateUserLocale(locale: Locale): Promise<{
  * Lấy locale của user từ database
  */
 export async function getUserLocale(): Promise<Locale> {
-  const supabase = await createClient();
+  try {
+    const supabase = await createClient();
 
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-  if (userError || !user) {
-    return "en"; // Default locale
+    if (userError || !user) {
+      return "en"; // Default locale
+    }
+
+    // Query locale từ user_profiles
+    // Handle case where locale column might not exist yet
+    const { data: profile, error } = await supabase
+      .from("user_profiles")
+      .select("locale")
+      .eq("id", user.id)
+      .single();
+
+    // If error is about missing column, return default
+    if (error) {
+      if (error.message?.includes("column") || error.code === "42703") {
+        if (process.env.NODE_ENV === "development") {
+          console.warn("[getUserLocale] locale column not found, using default");
+        }
+        return "en";
+      }
+      // Other errors - return default
+      return "en";
+    }
+
+    if (!profile || !profile.locale) {
+      return "en"; // Default locale
+    }
+
+    // Validate locale
+    const locale = profile.locale as Locale;
+    return locales.includes(locale) ? locale : "en";
+  } catch (error) {
+    // Catch any unexpected errors and return default
+    if (process.env.NODE_ENV === "development") {
+      console.error("[getUserLocale] Unexpected error:", error);
+    }
+    return "en";
   }
-
-  // Query locale từ user_profiles
-  const { data: profile, error } = await supabase
-    .from("user_profiles")
-    .select("locale")
-    .eq("id", user.id)
-    .single();
-
-  if (error || !profile || !profile.locale) {
-    return "en"; // Default locale
-  }
-
-  // Validate locale
-  const locale = profile.locale as Locale;
-  return locales.includes(locale) ? locale : "en";
 }
 

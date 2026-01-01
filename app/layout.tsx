@@ -22,17 +22,44 @@ export default async function RootLayout({
     locale = await getUserLocale();
   } catch (error) {
     // If error, fallback to cookie
-    const cookieStore = await cookies();
-    const cookieLocale = cookieStore.get("locale")?.value;
-    if (cookieLocale && locales.includes(cookieLocale as Locale)) {
-      locale = cookieLocale as Locale;
+    if (process.env.NODE_ENV === "development") {
+      console.error("[RootLayout] Error getting user locale:", error);
+    }
+    try {
+      const cookieStore = await cookies();
+      const cookieLocale = cookieStore.get("locale")?.value;
+      if (cookieLocale && locales.includes(cookieLocale as Locale)) {
+        locale = cookieLocale as Locale;
+      }
+    } catch (cookieError) {
+      // If cookie access fails, use default
+      if (process.env.NODE_ENV === "development") {
+        console.error("[RootLayout] Error accessing cookies:", cookieError);
+      }
     }
   }
   
   const validLocale = locales.includes(locale) ? locale : "en";
   
-  // Load messages dynamically
-  const messages = (await import(`../messages/${validLocale}.json`)).default;
+  // Load messages dynamically with error handling
+  let messages: any;
+  try {
+    messages = (await import(`../messages/${validLocale}.json`)).default;
+  } catch (importError) {
+    // If import fails, try to load English as fallback
+    if (process.env.NODE_ENV === "development") {
+      console.error(`[RootLayout] Error loading messages for locale ${validLocale}:`, importError);
+    }
+    try {
+      messages = (await import(`../messages/en.json`)).default;
+    } catch (fallbackError) {
+      // If even English fails, use empty object
+      if (process.env.NODE_ENV === "development") {
+        console.error("[RootLayout] Error loading fallback messages:", fallbackError);
+      }
+      messages = {};
+    }
+  }
 
   return (
     <html lang={validLocale}>
