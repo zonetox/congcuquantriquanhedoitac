@@ -24,14 +24,30 @@ export async function getUnreadSalesOpportunitiesCount(): Promise<number> {
     // 1. signal = "Cơ hội bán hàng" trong ai_analysis
     // 2. notification_sent = false
     // 3. user_id = current user
-    const { data: posts, error } = await supabase
+    let { data: posts, error } = await supabase
       .from("profile_posts")
       .select("id, ai_analysis")
       .eq("user_id", user.id)
       .eq("notification_sent", false)
       .not("ai_analysis", "is", null);
 
-    if (error || !posts) {
+    // If error is about missing column, try without notification_sent filter
+    if (error && (error.message?.includes("column") || error.code === "42703")) {
+      if (process.env.NODE_ENV === "development") {
+        console.warn("[getUnreadSalesOpportunitiesCount] notification_sent column not found, querying without filter");
+      }
+      // Try again without notification_sent filter
+      const { data: allPosts, error: retryError } = await supabase
+        .from("profile_posts")
+        .select("id, ai_analysis")
+        .eq("user_id", user.id)
+        .not("ai_analysis", "is", null);
+
+      if (retryError || !allPosts) {
+        return 0;
+      }
+      posts = allPosts;
+    } else if (error || !posts) {
       if (process.env.NODE_ENV === "development") {
         console.error("[getUnreadSalesOpportunitiesCount] Error:", error);
       }

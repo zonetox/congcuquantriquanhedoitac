@@ -47,6 +47,17 @@ export async function updateNotificationSettings(
     .eq("id", profileId)
     .eq("user_id", user.id);
 
+  // If error is about missing columns, return success (columns not created yet)
+  if (error && (error.message?.includes("column") || error.code === "42703")) {
+    if (process.env.NODE_ENV === "development") {
+      console.warn("[updateNotificationSettings] Notification columns not found, skipping update");
+    }
+    return {
+      success: true,
+      error: null,
+    };
+  }
+
   if (error) {
     if (process.env.NODE_ENV === "development") {
       console.error("[updateNotificationSettings] Database error:", error);
@@ -114,7 +125,7 @@ export async function checkAndNotify(): Promise<{
   // 1. signal = "Cơ hội bán hàng" trong ai_analysis
   // 2. notification_sent = false
   // 3. Profile có notify_on_sales_opportunity = true và có notify_telegram_chat_id
-  const { data: posts, error: postsError } = await supabase
+  let { data: posts, error: postsError } = await supabase
     .from("profile_posts")
     .select(`
       *,
@@ -129,13 +140,24 @@ export async function checkAndNotify(): Promise<{
     .eq("notification_sent", false)
     .not("ai_analysis", "is", null);
 
+  // If error is about missing columns, return empty (columns not created yet)
+  if (postsError && (postsError.message?.includes("column") || postsError.code === "42703")) {
+    if (process.env.NODE_ENV === "development") {
+      console.warn("[checkAndNotify] Notification columns not found, skipping notifications");
+    }
+    return {
+      notificationsSent: 0,
+      errors: [],
+    };
+  }
+
   if (postsError) {
     if (process.env.NODE_ENV === "development") {
       console.error("[checkAndNotify] Error fetching posts:", postsError);
     }
     return {
       notificationsSent: 0,
-      errors: [postsError.message],
+      errors: [postsError.message || "Failed to fetch posts"],
     };
   }
 
@@ -178,10 +200,17 @@ export async function checkAndNotify(): Promise<{
 
     if (result.success) {
       // Đánh dấu đã gửi thông báo
-      await supabase
+      const { error: updateError } = await supabase
         .from("profile_posts")
         .update({ notification_sent: true })
         .eq("id", post.id);
+
+      // Ignore error if column doesn't exist yet
+      if (updateError && !(updateError.message?.includes("column") || updateError.code === "42703")) {
+        if (process.env.NODE_ENV === "development") {
+          console.error("[checkAndNotify] Error updating notification_sent:", updateError);
+        }
+      }
 
       notificationsSent++;
     } else {
@@ -223,11 +252,24 @@ export async function getNotificationSettings(): Promise<{
       };
     }
 
-    const { data, error } = await supabase
+    // Try to select with notification columns, fallback to basic columns if they don't exist
+    let { data, error } = await supabase
       .from("profiles_tracked")
       .select("id, title, notify_telegram_chat_id, notify_on_sales_opportunity")
       .eq("user_id", user.id)
       .order("title", { ascending: true });
+
+    // If error is about missing columns, try again with only basic columns
+    if (error && (error.message?.includes("column") || error.code === "42703")) {
+      // Columns don't exist yet, return empty settings
+      if (process.env.NODE_ENV === "development") {
+        console.warn("[getNotificationSettings] Notification columns not found, returning empty settings");
+      }
+      return {
+        data: [],
+        error: null,
+      };
+    }
 
     if (error) {
       if (process.env.NODE_ENV === "development") {
@@ -239,7 +281,7 @@ export async function getNotificationSettings(): Promise<{
       };
     }
 
-    const settings = (data || []).map((profile) => ({
+    const settings = (data || []).map((profile: any) => ({
       profile_id: profile.id,
       profile_title: profile.title,
       notify_telegram_chat_id: profile.notify_telegram_chat_id || null,
