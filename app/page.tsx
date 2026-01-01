@@ -40,7 +40,13 @@ export default async function Home() {
         if (process.env.NODE_ENV === "development") {
           console.error("[Home] Error fetching membership:", err);
         }
-        return { isPremium: false, isAdmin: false, hasValidPremium: false, trialStatus: { daysLeft: null, isActive: false, isExpired: false } };
+        return {
+          isPremium: false,
+          isAdmin: false,
+          role: null,
+          hasValidPremium: false,
+          trialStatus: { daysLeft: null, isActive: false, isExpired: false }
+        };
       }),
       getCategories().catch((err) => {
         if (process.env.NODE_ENV === "development") {
