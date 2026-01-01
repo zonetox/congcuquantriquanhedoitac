@@ -75,8 +75,8 @@ FOR UPDATE USING (public.is_admin_user());
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 BEGIN
-  INSERT INTO public.user_profiles (id, email, role, is_premium)
-  VALUES (new.id, new.email, 'user', false)
+  INSERT INTO public.user_profiles (id, email, role, is_premium, locale)
+  VALUES (new.id, new.email, 'user', false, 'en')
   ON CONFLICT (id) DO NOTHING;
   RETURN new;
 END;

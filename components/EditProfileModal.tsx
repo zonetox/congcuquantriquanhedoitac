@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import Image from "next/image";
 import { getFaviconUrl, getDomainFromUrl, isValidUrl, normalizeUrl } from "@/lib/utils/url";
 import { CategorySelector } from "@/components/CategorySelector";
+import { useTranslations } from "next-intl";
 import type { Profile } from "@/lib/profiles/types";
 
 interface EditProfileModalProps {
@@ -17,6 +18,8 @@ interface EditProfileModalProps {
 }
 
 export function EditProfileModal({ isOpen, onClose, profile }: EditProfileModalProps) {
+  const t = useTranslations("profile");
+  const tCommon = useTranslations("common");
   const router = useRouter();
   const [title, setTitle] = useState(profile.title);
   const [url, setUrl] = useState(profile.url);
@@ -65,20 +68,20 @@ export function EditProfileModal({ isOpen, onClose, profile }: EditProfileModalP
 
     // Validate URL
     if (!url.trim()) {
-      setError("Please enter a URL");
+      setError(t("urlRequired"));
       return;
     }
 
     const normalizedUrl = normalizeUrl(url.trim());
 
     if (!isValidUrl(normalizedUrl)) {
-      setError("Please enter a valid URL (must start with http:// or https://)");
+      setError(t("urlInvalid"));
       return;
     }
 
     // Validate title
     if (!title.trim()) {
-      setError("Please enter a title");
+      setError(t("titleRequired"));
       return;
     }
 
@@ -96,7 +99,7 @@ export function EditProfileModal({ isOpen, onClose, profile }: EditProfileModalP
         setError(result.error);
         toast.error(result.error);
       } else {
-        toast.success("Profile updated successfully!");
+        toast.success(t("updateSuccess"));
         router.refresh();
         onClose();
       }
@@ -104,7 +107,7 @@ export function EditProfileModal({ isOpen, onClose, profile }: EditProfileModalP
       const errorMessage = err instanceof Error ? err.message : "An error occurred";
       setError(errorMessage);
       console.error("Error updating profile:", err);
-      toast.error("Failed to update profile");
+      toast.error(t("updateError"));
     } finally {
       setLoading(false);
     }
@@ -125,7 +128,7 @@ export function EditProfileModal({ isOpen, onClose, profile }: EditProfileModalP
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-gray-700">
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
-            Edit Profile
+            {t("edit")}
           </h2>
           <button
             onClick={onClose}
@@ -140,7 +143,7 @@ export function EditProfileModal({ isOpen, onClose, profile }: EditProfileModalP
           {/* URL Input */}
           <div>
             <label htmlFor="url" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-              Profile URL *
+              {t("url")} *
             </label>
             <div className="relative">
               <input
@@ -177,7 +180,7 @@ export function EditProfileModal({ isOpen, onClose, profile }: EditProfileModalP
           {/* Title Input */}
           <div>
             <label htmlFor="title" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-              Title *
+              {t("title")} *
             </label>
             <input
               id="title"
@@ -193,7 +196,7 @@ export function EditProfileModal({ isOpen, onClose, profile }: EditProfileModalP
           {/* Category Select */}
           <div>
             <label htmlFor="category" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-              Category
+              {t("category")}
             </label>
             <CategorySelector
               value={category}
@@ -206,13 +209,13 @@ export function EditProfileModal({ isOpen, onClose, profile }: EditProfileModalP
           {/* Notes Textarea */}
           <div>
             <label htmlFor="notes" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-              Quick Notes
+              {t("notes")}
             </label>
             <textarea
               id="notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Add a quick note about why you're tracking this profile"
+              placeholder={t("notes")}
               rows={3}
               disabled={loading}
               className="w-full px-4 py-3 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-700 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed resize-none"
@@ -234,7 +237,7 @@ export function EditProfileModal({ isOpen, onClose, profile }: EditProfileModalP
               disabled={loading}
               className="px-6 py-2.5 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50"
             >
-              Cancel
+              {tCommon("cancel")}
             </button>
             <button
               type="submit"
@@ -244,10 +247,10 @@ export function EditProfileModal({ isOpen, onClose, profile }: EditProfileModalP
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Updating...
+                  {tCommon("loading")}
                 </>
               ) : (
-                "Update Profile"
+                tCommon("save")
               )}
             </button>
           </div>

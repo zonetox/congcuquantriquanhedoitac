@@ -1,0 +1,88 @@
+{
+  "common": {
+    "dashboard": "Panel",
+    "feed": "Feed",
+    "settings": "Configuración",
+    "admin": "Administrador",
+    "signOut": "Cerrar sesión",
+    "addProfile": "Agregar nuevo perfil",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "loading": "Cargando...",
+    "error": "Error",
+    "success": "Éxito",
+    "close": "Cerrar"
+  },
+  "landing": {
+    "title": "Deja de ahogarte en pestañas. Construye relaciones más fuertes.",
+    "subtitle": "Gestiona los perfiles de tus socios en un solo lugar. Nunca te pierdas una actualización.",
+    "getStarted": "Comenzar gratis",
+    "painPoint1": {
+      "title": "Perdido en el feed",
+      "description": "Los algoritmos de Facebook/LinkedIn ocultan publicaciones de personas importantes si no interactúas regularmente.",
+      "solution": "Partner Center escanea perfiles directamente, asegurando que nunca te pierdas noticias de contactos críticos para el negocio."
+    },
+    "painPoint2": {
+      "title": "Pérdida de tiempo",
+      "description": "Pasa 2 horas diarias desplazándote por 5 redes sociales solo para ver qué están haciendo 20 socios/clientes.",
+      "solution": "Solo 5 minutos en el Feed enfocado de Partner Center. Tiempo ahorrado = Dinero."
+    },
+    "painPoint3": {
+      "title": "Alto costo",
+      "description": "Los sistemas voluminosos de Social Listening cuestan $200+/mes, demasiado caros para individuos y PYMEs.",
+      "solution": "Herramienta ligera, 'suficiente' con costos desde $5-$10/mes."
+    },
+    "painPoint4": {
+      "title": "Oportunidades perdidas",
+      "description": "Sabes que los clientes publicaron pero no sabes qué decir, o te pierdes señales de compra.",
+      "solution": "AI Ice Breaker sugiere plantillas de respuesta y AI Sales Signals alerta cuando se detectan necesidades de compra en publicaciones."
+    }
+  },
+  "dashboard": {
+    "title": "Tus perfiles",
+    "empty": "Aún no hay perfiles. ¡Agrega tu primer perfil para comenzar!",
+    "addFirst": "Agregar tu primer perfil",
+    "categories": "Categorías",
+    "all": "Todos"
+  },
+  "feed": {
+    "title": "Feed",
+    "subtitle": "Últimas actualizaciones de tus perfiles seguidos",
+    "sync": "Sincronizar feed",
+    "syncing": "Sincronizando...",
+    "refresh": "Actualizar",
+    "empty": "Aún no hay publicaciones",
+    "emptyDescription": "Haz clic en \"Sincronizar feed\" para obtener publicaciones de tus perfiles seguidos, o habilita \"Mostrar en Feed\" en las tarjetas de perfil.",
+    "viewOriginal": "Ver original",
+    "copyLink": "Copiar enlace",
+    "copied": "¡Copiado!",
+    "aiSummary": "Resumen IA",
+    "salesOpportunity": "Oportunidad de venta",
+    "aiSuggestions": "Sugerencias de respuesta IA",
+    "copySuggestion": "Respuesta IA copiada",
+    "publicComment": "Comentario público",
+    "privateMessage": "Mensaje privado",
+    "engagingQuestion": "Pregunta atractiva"
+  },
+  "profile": {
+    "title": "Título del perfil",
+    "url": "URL del perfil",
+    "category": "Categoría",
+    "notes": "Notas",
+    "add": "Agregar perfil",
+    "edit": "Editar perfil",
+    "delete": "Eliminar perfil",
+    "deleteConfirm": "¿Estás seguro de que quieres eliminar este perfil?",
+    "showInFeed": "Mostrar en Feed",
+    "lastInteracted": "Última interacción",
+    "relationshipScore": "Puntuación de relación"
+  },
+  "settings": {
+    "title": "Configuración",
+    "language": "Idioma",
+    "selectLanguage": "Seleccionar idioma"
+  }
+}
+

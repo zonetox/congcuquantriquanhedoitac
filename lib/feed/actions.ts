@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { analyzePostWithAI } from "@/lib/ai/analyzer";
 
 export interface ProfilePost {
   id: string;
@@ -156,6 +157,7 @@ export async function syncFeed(): Promise<{
 
   let postsCreated = 0;
   const errors: string[] = [];
+  let aiErrors = 0;
 
   for (const profile of profiles) {
     // Tạo 2-3 posts ngẫu nhiên cho mỗi profile
@@ -166,6 +168,27 @@ export async function syncFeed(): Promise<{
       const publishedAt = new Date();
       publishedAt.setHours(publishedAt.getHours() - Math.floor(Math.random() * 24)); // Random trong 24h qua
 
+      // Tự động phân tích với AI nếu có content
+      let aiAnalysis = null;
+      let aiSuggestions = null;
+      
+      if (samplePost.content) {
+        const aiResult = await analyzePostWithAI(samplePost.content);
+        if (aiResult.data) {
+          // Format mới: lưu trực tiếp result vào ai_analysis, ice_breakers vào ai_suggestions
+          aiAnalysis = {
+            summary: aiResult.data.summary,
+            signal: aiResult.data.signal,
+          };
+          aiSuggestions = aiResult.data.ice_breakers;
+        } else if (aiResult.error) {
+          // Nếu AI fail, vẫn tạo post nhưng không có AI data
+          aiErrors++;
+          console.warn(`[syncFeed] AI analysis failed for post: ${aiResult.error}`);
+          // Post vẫn được tạo bình thường, chỉ không có AI data
+        }
+      }
+
       const { error } = await supabase.from("profile_posts").insert({
         profile_id: profile.id,
         user_id: user.id,
@@ -173,6 +196,8 @@ export async function syncFeed(): Promise<{
         post_url: `${profile.url}/post-${Date.now()}`,
         image_url: samplePost.image_url,
         published_at: publishedAt.toISOString(),
+        ai_analysis: aiAnalysis,
+        ai_suggestions: aiSuggestions,
       });
 
       if (error) {
@@ -186,9 +211,17 @@ export async function syncFeed(): Promise<{
   revalidatePath("/feed");
   revalidatePath("/");
 
+  let finalError = null;
+  if (errors.length > 0) {
+    finalError = errors.join(", ");
+  } else if (aiErrors > 0) {
+    // Nếu chỉ có lỗi AI, thông báo nhẹ nhàng
+    finalError = `Hệ thống AI đang bảo trì. ${postsCreated} bài đăng đã được tạo nhưng chưa có phân tích AI.`;
+  }
+
   return {
     success: postsCreated > 0,
     postsCreated,
-    error: errors.length > 0 ? errors.join(", ") : null,
+    error: finalError,
   };
 }

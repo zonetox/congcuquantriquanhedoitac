@@ -1,0 +1,117 @@
+{
+  "common": {
+    "dashboard": "Bảng điều khiển",
+    "feed": "Bảng tin",
+    "settings": "Cài đặt",
+    "admin": "Quản trị",
+    "signOut": "Đăng xuất",
+    "addProfile": "Thêm hồ sơ mới",
+    "edit": "Chỉnh sửa",
+    "delete": "Xóa",
+    "save": "Lưu",
+    "cancel": "Hủy",
+    "loading": "Đang tải...",
+    "error": "Lỗi",
+    "success": "Thành công",
+    "close": "Đóng"
+  },
+  "landing": {
+    "title": "Ngừng chìm trong các tab. Xây dựng mối quan hệ bền chặt hơn.",
+    "subtitle": "Quản lý hồ sơ đối tác của bạn ở một nơi. Không bao giờ bỏ lỡ cập nhật.",
+    "getStarted": "Bắt đầu miễn phí",
+    "painPoint1": {
+      "title": "Lạc trôi tin tức",
+      "description": "Thuật toán Facebook/LinkedIn ẩn bài đăng của những người quan trọng nếu bạn không tương tác thường xuyên.",
+      "solution": "Partner Center quét trực tiếp Profile, đảm bảo bạn không bao giờ bỏ lỡ tin tức từ những người cực kỳ quan trọng về mặt kinh doanh."
+    },
+    "painPoint2": {
+      "title": "Mất thời gian",
+      "description": "Tốn 2 tiếng mỗi ngày lướt 5 mạng xã hội chỉ để check xem 20 đối tác/khách hàng đang làm gì.",
+      "solution": "Chỉ cần 5 phút trên Newsfeed tập trung của Partner Center. Tiết kiệm thời gian = Tiền bạc."
+    },
+    "painPoint3": {
+      "title": "Chi phí",
+      "description": "Các hệ thống Social Listening cồng kềnh có giá từ $200/tháng, quá đắt cho cá nhân và SME.",
+      "solution": "Công cụ tinh gọn, \"vừa đủ xài\" với chi phí chỉ từ $5 - $10/tháng."
+    },
+    "painPoint4": {
+      "title": "Bí từ và Bỏ lỡ cơ hội",
+      "description": "Biết khách hàng đăng bài nhưng không biết nói gì cho duyên dáng, hoặc không nhận ra khách đang có nhu cầu mua hàng.",
+      "solution": "AI Ice Breaker gợi ý mẫu câu phản hồi và AI Sales Signals cảnh báo ngay khi phát hiện nhu cầu mua hàng trong bài đăng."
+    }
+  },
+  "dashboard": {
+    "title": "Hồ sơ của bạn",
+    "subtitle": "{count} {count, plural, =1 {hồ sơ} other {hồ sơ}} đang theo dõi",
+    "empty": "Chưa có hồ sơ nào. Thêm hồ sơ đầu tiên để bắt đầu!",
+    "addFirst": "Thêm hồ sơ đầu tiên",
+    "categories": "Danh mục",
+    "all": "Tất cả",
+    "success": "Thành công"
+  },
+  "feed": {
+    "title": "Bảng tin",
+    "subtitle": "Cập nhật mới nhất từ các hồ sơ bạn theo dõi",
+    "sync": "Đồng bộ bảng tin",
+    "syncing": "Đang đồng bộ...",
+    "refresh": "Làm mới",
+    "empty": "Chưa có bài đăng",
+    "emptyDescription": "Nhấn \"Đồng bộ bảng tin\" để lấy bài đăng từ các hồ sơ bạn theo dõi, hoặc bật \"Hiển thị trên Newsfeed\" trên thẻ hồ sơ.",
+    "viewOriginal": "Xem bản gốc",
+    "copyLink": "Sao chép liên kết",
+    "copied": "Đã sao chép!",
+    "aiSummary": "Tóm tắt AI",
+    "salesOpportunity": "Cơ hội bán hàng",
+    "aiSuggestions": "Gợi ý phản hồi AI",
+    "copySuggestion": "Đã sao chép câu trả lời AI",
+    "publicComment": "Bình luận công khai",
+    "privateMessage": "Tin nhắn riêng",
+    "engagingQuestion": "Câu hỏi gợi mở",
+    "linkCopied": "Đã sao chép liên kết!",
+    "noLink": "Không có liên kết",
+    "syncSuccess": "Đã đồng bộ! Tạo {count} bài đăng mới."
+  },
+  "profile": {
+    "title": "Tiêu đề hồ sơ",
+    "url": "URL hồ sơ",
+    "category": "Danh mục",
+    "notes": "Ghi chú",
+    "add": "Thêm hồ sơ",
+    "edit": "Chỉnh sửa hồ sơ",
+    "delete": "Xóa hồ sơ",
+    "deleteConfirm": "Bạn có chắc chắn muốn xóa hồ sơ này?",
+    "showInFeed": "Hiển thị trên Newsfeed",
+    "showInFeedDescription": "Bật để hiển thị bài đăng từ hồ sơ này trong Newsfeed",
+    "lastInteracted": "Lần tương tác cuối",
+    "relationshipScore": "Điểm sức khỏe mối quan hệ",
+    "addNew": "Thêm hồ sơ mới",
+    "deleteSuccess": "Đã xóa hồ sơ thành công!",
+    "addSuccess": "Đã thêm hồ sơ thành công!",
+    "updateSuccess": "Đã cập nhật hồ sơ thành công!",
+    "urlRequired": "Vui lòng nhập URL",
+    "urlInvalid": "Vui lòng nhập URL hợp lệ (phải bắt đầu bằng http:// hoặc https://)",
+    "titleRequired": "Vui lòng nhập tiêu đề",
+    "addError": "Không thể thêm hồ sơ",
+    "updateError": "Không thể cập nhật hồ sơ",
+    "interactionAdded": "Đã thêm nhật ký tương tác thành công",
+    "addedToFeed": "Đã thêm vào feed",
+    "removedFromFeed": "Đã xóa khỏi feed",
+    "addInteraction": "Thêm nhật ký tương tác",
+    "interactionHistory": "Lịch sử tương tác",
+    "noInteractions": "Chưa có nhật ký tương tác",
+    "addFirstInteraction": "Thêm tương tác đầu tiên ở trên",
+    "interactionPlaceholder": "Nhập chi tiết tương tác...",
+    "interactionTypes": {
+      "note": "Ghi chú",
+      "call": "Cuộc gọi",
+      "message": "Tin nhắn",
+      "comment": "Bình luận"
+    }
+  },
+  "settings": {
+    "title": "Cài đặt",
+    "language": "Ngôn ngữ",
+    "selectLanguage": "Chọn ngôn ngữ"
+  }
+}
+

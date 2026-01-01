@@ -1,0 +1,88 @@
+{
+  "common": {
+    "dashboard": "Tableau de bord",
+    "feed": "Fil d'actualité",
+    "settings": "Paramètres",
+    "admin": "Administrateur",
+    "signOut": "Déconnexion",
+    "addProfile": "Ajouter un nouveau profil",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "success": "Succès",
+    "close": "Fermer"
+  },
+  "landing": {
+    "title": "Arrêtez de vous noyer dans les onglets. Construisez des relations plus solides.",
+    "subtitle": "Gérez les profils de vos partenaires en un seul endroit. Ne manquez jamais une mise à jour.",
+    "getStarted": "Commencer gratuitement",
+    "painPoint1": {
+      "title": "Perdu dans le fil",
+      "description": "Les algorithmes Facebook/LinkedIn masquent les publications de personnes importantes si vous n'interagissez pas régulièrement.",
+      "solution": "Partner Center scanne directement les profils, garantissant que vous ne manquez jamais les nouvelles de contacts critiques pour l'entreprise."
+    },
+    "painPoint2": {
+      "title": "Perte de temps",
+      "description": "Passez 2 heures par jour à faire défiler 5 réseaux sociaux juste pour vérifier ce que font 20 partenaires/clients.",
+      "solution": "Seulement 5 minutes sur le Fil d'actualité ciblé de Partner Center. Temps économisé = Argent."
+    },
+    "painPoint3": {
+      "title": "Coût élevé",
+      "description": "Les systèmes volumineux de Social Listening coûtent 200 $+/mois, trop chers pour les particuliers et les PME.",
+      "solution": "Outil léger, 'juste assez' avec des coûts de 5 $ à 10 $/mois."
+    },
+    "painPoint4": {
+      "title": "Opportunités manquées",
+      "description": "Savoir que les clients ont publié mais ne pas savoir quoi dire, ou manquer des signaux d'achat.",
+      "solution": "AI Ice Breaker suggère des modèles de réponse et AI Sales Signals alerte lorsque des besoins d'achat sont détectés dans les publications."
+    }
+  },
+  "dashboard": {
+    "title": "Vos profils",
+    "empty": "Aucun profil pour le moment. Ajoutez votre premier profil pour commencer !",
+    "addFirst": "Ajouter votre premier profil",
+    "categories": "Catégories",
+    "all": "Tous"
+  },
+  "feed": {
+    "title": "Fil d'actualité",
+    "subtitle": "Dernières mises à jour de vos profils suivis",
+    "sync": "Synchroniser le fil",
+    "syncing": "Synchronisation...",
+    "refresh": "Actualiser",
+    "empty": "Aucune publication pour le moment",
+    "emptyDescription": "Cliquez sur \"Synchroniser le fil\" pour récupérer les publications de vos profils suivis, ou activez \"Afficher dans le fil\" sur les cartes de profil.",
+    "viewOriginal": "Voir l'original",
+    "copyLink": "Copier le lien",
+    "copied": "Copié !",
+    "aiSummary": "Résumé IA",
+    "salesOpportunity": "Opportunité de vente",
+    "aiSuggestions": "Suggestions de réponse IA",
+    "copySuggestion": "Réponse IA copiée",
+    "publicComment": "Commentaire public",
+    "privateMessage": "Message privé",
+    "engagingQuestion": "Question engageante"
+  },
+  "profile": {
+    "title": "Titre du profil",
+    "url": "URL du profil",
+    "category": "Catégorie",
+    "notes": "Notes",
+    "add": "Ajouter un profil",
+    "edit": "Modifier le profil",
+    "delete": "Supprimer le profil",
+    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer ce profil ?",
+    "showInFeed": "Afficher dans le fil",
+    "lastInteracted": "Dernière interaction",
+    "relationshipScore": "Score de relation"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "language": "Langue",
+    "selectLanguage": "Sélectionner la langue"
+  }
+}
+

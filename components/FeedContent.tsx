@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Rss, Loader2, RefreshCw, ExternalLink, Copy, Check, Sync } from "lucide-react";
+import { Rss, Loader2, RefreshCw, ExternalLink, Copy, Check, RotateCw, MessageCircle, Send, Lightbulb, Sparkles, AlertCircle } from "lucide-react";
 import { getFeedPosts, syncFeed } from "@/lib/feed/actions";
 import { toast } from "sonner";
 import Image from "next/image";
 import { getFaviconUrl, getDomainFromUrl } from "@/lib/utils/url";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import type { ProfilePost } from "@/lib/feed/actions";
 
 interface FeedContentProps {
@@ -16,11 +17,13 @@ interface FeedContentProps {
 }
 
 export function FeedContent({ isPremium = false, hasValidPremium = false, trialExpired = false }: FeedContentProps) {
+  const t = useTranslations("feed");
   const router = useRouter();
   const [posts, setPosts] = useState<Array<ProfilePost & { profile_title: string; profile_url: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copiedSuggestionId, setCopiedSuggestionId] = useState<string | null>(null);
 
   const loadPosts = useCallback(async () => {
     setLoading(true);
@@ -43,7 +46,7 @@ export function FeedContent({ isPremium = false, hasValidPremium = false, trialE
     if (result.error) {
       toast.error(result.error);
     } else {
-      toast.success(`Synced! Created ${result.postsCreated} new posts.`);
+      toast.success(t("syncSuccess", { count: result.postsCreated }));
       loadPosts();
       router.refresh();
     }
@@ -52,17 +55,43 @@ export function FeedContent({ isPremium = false, hasValidPremium = false, trialE
 
   const handleCopyLink = async (postUrl: string | null, postId: string) => {
     if (!postUrl) {
-      toast.error("No link available");
+      toast.error(t("noLink"));
       return;
     }
     try {
       await navigator.clipboard.writeText(postUrl);
       setCopiedId(postId);
-      toast.success("Link copied to clipboard!");
+      toast.success(t("linkCopied"));
       setTimeout(() => setCopiedId(null), 2000);
     } catch (error) {
-      toast.error("Failed to copy link");
+      toast.error(t("error"));
     }
+  };
+
+  const handleCopySuggestion = async (text: string, suggestionId: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedSuggestionId(suggestionId);
+      toast.success(t("copySuggestion"));
+      setTimeout(() => setCopiedSuggestionId(null), 2000);
+    } catch (error) {
+      toast.error("Failed to copy suggestion");
+    }
+  };
+
+  // Helper function để parse AI analysis (format mới: {summary, signal})
+  const parseAIAnalysis = (analysis: any): { summary: string; signal: string } | null => {
+    if (!analysis || typeof analysis !== "object") return null;
+    return {
+      summary: analysis.summary || "",
+      signal: analysis.signal || "Khác",
+    };
+  };
+
+  // Helper function để parse AI suggestions (format mới: array string đơn giản)
+  const parseAISuggestions = (suggestions: any): string[] => {
+    if (!Array.isArray(suggestions)) return [];
+    return suggestions.filter((s) => typeof s === "string" && s.trim().length > 0);
   };
 
   const handleRefresh = () => {
@@ -100,10 +129,10 @@ export function FeedContent({ isPremium = false, hasValidPremium = false, trialE
           <div>
             <h1 className="text-3xl font-bold text-slate-800 flex items-center gap-3">
               <Rss className="w-8 h-8 text-pastel-teal" />
-              Newsfeed
+              {t("title")}
             </h1>
             <p className="text-slate-600 mt-1">
-              Latest updates from your tracked profiles
+              {t("subtitle")}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -116,12 +145,12 @@ export function FeedContent({ isPremium = false, hasValidPremium = false, trialE
               {syncing ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Syncing...
-                </>
+                  {t("syncing")}
+                </> 
               ) : (
                 <>
-                  <Sync className="w-5 h-5" />
-                  Sync Feed
+                  <RotateCw className="w-5 h-5" />
+                  {t("sync")}
                 </>
               )}
             </button>
@@ -195,6 +224,29 @@ export function FeedContent({ isPremium = false, hasValidPremium = false, trialE
                 </div>
               </div>
 
+              {/* AI Summary - Neumorphism Style */}
+              {post.ai_analysis && parseAIAnalysis(post.ai_analysis) && (
+                <div className="mb-4 space-y-2">
+                  <div className="bg-gradient-to-r from-pastel-mint/30 to-pastel-purple/30 rounded-lg p-3 shadow-soft-in">
+                    <div className="flex items-start gap-2">
+                      <Sparkles className="w-4 h-4 text-pastel-purple flex-shrink-0 mt-0.5" />
+                      <p className="text-sm text-slate-700 font-medium">
+                        {parseAIAnalysis(post.ai_analysis)?.summary}
+                      </p>
+                    </div>
+                  </div>
+                  {/* Sales Signal Tag - Hiển thị nếu signal là "Cơ hội bán hàng" hoặc "Sales Opportunity" */}
+                  {(parseAIAnalysis(post.ai_analysis)?.signal === "Cơ hội bán hàng" || 
+                    parseAIAnalysis(post.ai_analysis)?.signal === "Sales Opportunity") && (
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full text-xs font-semibold shadow-soft-out">
+                      <AlertCircle className="w-4 h-4 text-red-600" />
+                      <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                      {t("salesOpportunity")}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Post Content - Neumorphism Style */}
               <div className="space-y-4">
                 {post.content && (
@@ -219,6 +271,50 @@ export function FeedContent({ isPremium = false, hasValidPremium = false, trialE
                   </div>
                 )}
               </div>
+
+              {/* AI Ice Breakers - Neumorphism Style */}
+              {post.ai_suggestions && parseAISuggestions(post.ai_suggestions).length > 0 && (
+                <div className="mt-4 pt-4 border-t border-slate-200">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Lightbulb className="w-4 h-4 text-pastel-purple" />
+                    <h4 className="text-sm font-semibold text-slate-700">{t("aiSuggestions")}</h4>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {parseAISuggestions(post.ai_suggestions).slice(0, 3).map((suggestionText, idx) => {
+                      const suggestionId = `${post.id}-${idx}`;
+                      const icons = [MessageCircle, Send, Lightbulb];
+                      const labels = [t("publicComment"), t("privateMessage"), t("engagingQuestion")];
+                      const Icon = icons[idx] || MessageCircle;
+                      const label = labels[idx] || t("aiSuggestions");
+                      const isCopied = copiedSuggestionId === suggestionId;
+
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => handleCopySuggestion(suggestionText, suggestionId)}
+                          className="flex items-start gap-2 p-3 neu-button rounded-lg shadow-soft-out hover:shadow-soft-button-pressed active:shadow-soft-button-pressed transition-all text-left group"
+                        >
+                          <Icon className="w-4 h-4 text-pastel-purple flex-shrink-0 mt-0.5" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-slate-600 mb-1">
+                              {label}
+                            </p>
+                            <p className="text-xs text-slate-700 line-clamp-2">
+                              {suggestionText}
+                            </p>
+                            {isCopied && (
+                              <div className="flex items-center gap-1 mt-1 text-emerald-600 text-xs">
+                                <Check className="w-3 h-3" />
+                                <span>{t("copied")}</span>
+                              </div>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Post Footer - Neumorphism Style */}
               <div className="flex items-center gap-3 mt-4 pt-4 border-t border-slate-200">

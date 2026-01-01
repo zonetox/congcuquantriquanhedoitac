@@ -1,0 +1,88 @@
+{
+  "common": {
+    "dashboard": "仪表板",
+    "feed": "动态",
+    "settings": "设置",
+    "admin": "管理员",
+    "signOut": "登出",
+    "addProfile": "添加新档案",
+    "edit": "编辑",
+    "delete": "删除",
+    "save": "保存",
+    "cancel": "取消",
+    "loading": "加载中...",
+    "error": "错误",
+    "success": "成功",
+    "close": "关闭"
+  },
+  "landing": {
+    "title": "停止在标签页中淹没。建立更牢固的关系。",
+    "subtitle": "在一个地方管理您的合作伙伴档案。永远不错过更新。",
+    "getStarted": "免费开始",
+    "painPoint1": {
+      "title": "在动态中迷失",
+      "description": "如果您不经常互动，Facebook/LinkedIn算法会隐藏重要人员的帖子。",
+      "solution": "Partner Center直接扫描档案，确保您永远不会错过业务关键联系人的新闻。"
+    },
+    "painPoint2": {
+      "title": "浪费时间",
+      "description": "每天花2小时滚动5个社交网络，只是为了查看20个合作伙伴/客户在做什么。",
+      "solution": "在Partner Center的专注动态上只需5分钟。节省的时间=金钱。"
+    },
+    "painPoint3": {
+      "title": "高成本",
+      "description": "笨重的社交监听系统每月200美元以上，对个人和中小企业来说太贵了。",
+      "solution": "精简工具，'刚好够用'，成本从每月5-10美元起。"
+    },
+    "painPoint4": {
+      "title": "错失机会",
+      "description": "知道客户发布了但不知道说什么，或错过购买信号。",
+      "solution": "AI Ice Breaker建议回复模板，AI Sales Signals在检测到帖子中的购买需求时发出警报。"
+    }
+  },
+  "dashboard": {
+    "title": "您的档案",
+    "empty": "还没有档案。添加您的第一个档案开始吧！",
+    "addFirst": "添加您的第一个档案",
+    "categories": "类别",
+    "all": "全部"
+  },
+  "feed": {
+    "title": "动态",
+    "subtitle": "您跟踪的档案的最新更新",
+    "sync": "同步动态",
+    "syncing": "同步中...",
+    "refresh": "刷新",
+    "empty": "还没有帖子",
+    "emptyDescription": "点击\"同步动态\"从您跟踪的档案获取帖子，或在档案卡片上启用\"在动态中显示\"。",
+    "viewOriginal": "查看原文",
+    "copyLink": "复制链接",
+    "copied": "已复制！",
+    "aiSummary": "AI摘要",
+    "salesOpportunity": "销售机会",
+    "aiSuggestions": "AI回复建议",
+    "copySuggestion": "AI回复已复制",
+    "publicComment": "公开评论",
+    "privateMessage": "私信",
+    "engagingQuestion": "引人入胜的问题"
+  },
+  "profile": {
+    "title": "档案标题",
+    "url": "档案URL",
+    "category": "类别",
+    "notes": "备注",
+    "add": "添加档案",
+    "edit": "编辑档案",
+    "delete": "删除档案",
+    "deleteConfirm": "您确定要删除此档案吗？",
+    "showInFeed": "在动态中显示",
+    "lastInteracted": "最后互动",
+    "relationshipScore": "关系评分"
+  },
+  "settings": {
+    "title": "设置",
+    "language": "语言",
+    "selectLanguage": "选择语言"
+  }
+}
+

@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { ArrowRight, Radio, Clock, DollarSign, Zap, MessageSquare } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 export function LandingPage() {
+  const t = useTranslations("landing");
   return (
     <div className="min-h-screen neu-bg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -11,14 +13,10 @@ export function LandingPage() {
         <div className="text-center space-y-8 pt-20 pb-16">
           <div className="space-y-6">
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-slate-800 leading-tight">
-              Stop Drowning in Tabs.
-              <br />
-              <span className="bg-gradient-to-r from-emerald-500 to-blue-500 bg-clip-text text-transparent">
-                Build Stronger Relationships.
-              </span>
+              {t("title")}
             </h1>
             <p className="text-xl md:text-2xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
-              All important profiles of competitors, partners, and customers on a single screen. No ads, no distractions.
+              {t("subtitle")}
             </p>
           </div>
 
@@ -28,7 +26,7 @@ export function LandingPage() {
               href="/login"
               className="inline-flex items-center gap-2 px-10 py-5 neu-button bg-gradient-to-r from-emerald-400 to-blue-400 text-white text-lg font-semibold rounded-full shadow-soft-button hover:shadow-soft-button-pressed active:shadow-soft-button-pressed transition-all transform active:scale-95"
             >
-              Get Started for Free
+              {t("getStarted")}
               <ArrowRight className="w-5 h-5" />
             </Link>
           </div>
@@ -42,7 +40,7 @@ export function LandingPage() {
               <Radio className="w-8 h-8 text-pastel-pink" />
             </div>
             <h3 className="text-2xl font-bold text-slate-800 mb-4">
-              Lost in Newsfeed
+              {t("painPoint1.title")}
             </h3>
             <div className="space-y-4">
               <div>
@@ -50,7 +48,7 @@ export function LandingPage() {
                   The Problem:
                 </p>
                 <p className="text-slate-600 leading-relaxed">
-                  Facebook/LinkedIn algorithms hide posts from important people if you don&apos;t interact frequently.
+                  {t("painPoint1.description")}
                 </p>
               </div>
               <div>
@@ -58,7 +56,7 @@ export function LandingPage() {
                   The Solution:
                 </p>
                 <p className="text-slate-600 leading-relaxed">
-                  Partner Center scans profiles directly, ensuring you never miss updates from business-critical contacts.
+                  {t("painPoint1.solution")}
                 </p>
               </div>
             </div>
@@ -70,7 +68,7 @@ export function LandingPage() {
               <Clock className="w-8 h-8 text-pastel-teal" />
             </div>
             <h3 className="text-2xl font-bold text-slate-800 mb-4">
-              Time Waste
+              {t("painPoint2.title")}
             </h3>
             <div className="space-y-4">
               <div>
@@ -78,7 +76,7 @@ export function LandingPage() {
                   The Problem:
                 </p>
                 <p className="text-slate-600 leading-relaxed">
-                  Spending 2 hours daily scrolling through 5 social networks just to check what 20 partners/customers are doing.
+                  {t("painPoint2.description")}
                 </p>
               </div>
               <div>
@@ -86,7 +84,7 @@ export function LandingPage() {
                   The Solution:
                 </p>
                 <p className="text-slate-600 leading-relaxed">
-                  Just 5 minutes on Partner Center&apos;s focused Newsfeed. Time saved = Money earned.
+                  {t("painPoint2.solution")}
                 </p>
               </div>
             </div>
@@ -98,7 +96,7 @@ export function LandingPage() {
               <DollarSign className="w-8 h-8 text-pastel-mint" />
             </div>
             <h3 className="text-2xl font-bold text-slate-800 mb-4">
-              High Cost
+              {t("painPoint3.title")}
             </h3>
             <div className="space-y-4">
               <div>
@@ -106,7 +104,7 @@ export function LandingPage() {
                   The Problem:
                 </p>
                 <p className="text-slate-600 leading-relaxed">
-                  Bulky Social Listening systems cost $200+/month, too expensive for individuals and SMEs.
+                  {t("painPoint3.description")}
                 </p>
               </div>
               <div>
@@ -114,7 +112,7 @@ export function LandingPage() {
                   The Solution:
                 </p>
                 <p className="text-slate-600 leading-relaxed">
-                  A lean, &quot;just enough&quot; tool with pricing starting from just $5 - $10/month.
+                  {t("painPoint3.solution")}
                 </p>
               </div>
             </div>
@@ -126,7 +124,7 @@ export function LandingPage() {
               <MessageSquare className="w-8 h-8 text-pastel-purple" />
             </div>
             <h3 className="text-2xl font-bold text-slate-800 mb-4">
-              Missed Opportunities
+              {t("painPoint4.title")}
             </h3>
             <div className="space-y-4">
               <div>
@@ -134,7 +132,7 @@ export function LandingPage() {
                   The Problem:
                 </p>
                 <p className="text-slate-600 leading-relaxed">
-                  You know customers posted, but don&apos;t know what to say, or miss when they&apos;re showing buying signals.
+                  {t("painPoint4.description")}
                 </p>
               </div>
               <div>
@@ -142,7 +140,7 @@ export function LandingPage() {
                   The Solution:
                 </p>
                 <p className="text-slate-600 leading-relaxed">
-                  AI Ice Breaker suggests response templates, and AI Sales Signals alerts you instantly when purchase intent is detected in posts.
+                  {t("painPoint4.solution")}
                 </p>
               </div>
             </div>

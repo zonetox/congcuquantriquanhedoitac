@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import Image from "next/image";
 import { getFaviconUrl, getDomainFromUrl, isValidUrl, normalizeUrl } from "@/lib/utils/url";
 import { CategorySelector } from "@/components/CategorySelector";
+import { useTranslations } from "next-intl";
 
 // Logic mới: Tất cả users có full features, chỉ blur từ profile thứ 6 khi trial expired
 
@@ -26,6 +27,8 @@ export function AddProfileModal({
   currentProfileCount = 0,
   isPremium: isPremiumProp = false,
 }: AddProfileModalProps) {
+  const t = useTranslations("profile");
+  const tCommon = useTranslations("common");
   const router = useRouter();
   const [url, setUrl] = useState("");
   const [title, setTitle] = useState("");
@@ -82,20 +85,20 @@ export function AddProfileModal({
 
     // Validate URL
     if (!url.trim()) {
-      setError("Please enter a URL");
+      setError(t("urlRequired"));
       return;
     }
 
     const normalizedUrl = normalizeUrl(url.trim());
 
     if (!isValidUrl(normalizedUrl)) {
-      setError("Please enter a valid URL (must start with http:// or https://)");
+      setError(t("urlInvalid"));
       return;
     }
 
     // Validate title
     if (!title.trim()) {
-      setError("Please enter a title");
+      setError(t("titleRequired"));
       return;
     }
 
@@ -114,9 +117,9 @@ export function AddProfileModal({
       if (result.error) {
         setError(result.error);
         console.error("Failed to add profile:", result.error);
-        toast.error("Failed to add profile");
+        toast.error(t("addError"));
       } else {
-        toast.success("Profile added successfully!");
+        toast.success(t("addSuccess"));
         router.refresh();
         onClose();
       }
@@ -124,7 +127,7 @@ export function AddProfileModal({
       const errorMessage = err instanceof Error ? err.message : "An error occurred";
       setError(errorMessage);
       console.error("Error adding profile:", err);
-      toast.error("Failed to add profile");
+      toast.error(t("addError"));
     } finally {
       setLoading(false);
     }
@@ -153,7 +156,7 @@ export function AddProfileModal({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-gray-700">
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
-            Add New Profile
+            {t("addNew")}
           </h2>
           <button
             onClick={onClose}
@@ -168,7 +171,7 @@ export function AddProfileModal({
           {/* URL Input */}
           <div>
             <label htmlFor="url" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-              Profile URL *
+              {t("url")} *
             </label>
             <div className="relative">
               <input
@@ -206,7 +209,7 @@ export function AddProfileModal({
           {/* Title Input */}
           <div>
             <label htmlFor="title" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-              Title *
+              {t("title")} *
             </label>
             <input
               id="title"
@@ -222,7 +225,7 @@ export function AddProfileModal({
           {/* Category Select - Dynamic Categories */}
           <div>
             <label htmlFor="category" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-              Category
+              {t("category")}
             </label>
             <CategorySelector
               value={category}
@@ -235,13 +238,13 @@ export function AddProfileModal({
           {/* Notes Textarea - Full Features for All Users */}
           <div>
             <label htmlFor="notes" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-              Quick Notes
+              {t("notes")}
             </label>
             <textarea
               id="notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Add a quick note about why you're tracking this profile"
+              placeholder={t("notes")}
               rows={3}
               disabled={loading}
               className="w-full px-4 py-3 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-700 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed resize-none"
@@ -263,7 +266,7 @@ export function AddProfileModal({
               disabled={loading}
               className="px-6 py-2.5 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50"
             >
-              Cancel
+              {tCommon("cancel")}
             </button>
             <button
               type="submit"
@@ -273,10 +276,10 @@ export function AddProfileModal({
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Adding...
+                  {tCommon("loading")}
                 </>
               ) : (
-                "Add Profile"
+                t("add")
               )}
             </button>
           </div>

@@ -1,0 +1,88 @@
+{
+  "common": {
+    "dashboard": "ダッシュボード",
+    "feed": "フィード",
+    "settings": "設定",
+    "admin": "管理者",
+    "signOut": "サインアウト",
+    "addProfile": "新しいプロフィールを追加",
+    "edit": "編集",
+    "delete": "削除",
+    "save": "保存",
+    "cancel": "キャンセル",
+    "loading": "読み込み中...",
+    "error": "エラー",
+    "success": "成功",
+    "close": "閉じる"
+  },
+  "landing": {
+    "title": "タブで溺れるのをやめましょう。より強い関係を築きましょう。",
+    "subtitle": "パートナープロフィールを1か所で管理。更新を見逃すことはありません。",
+    "getStarted": "無料で始める",
+    "painPoint1": {
+      "title": "フィードで迷子",
+      "description": "Facebook/LinkedInのアルゴリズムは、定期的にやり取りしない場合、重要な人の投稿を非表示にします。",
+      "solution": "Partner Centerはプロフィールを直接スキャンし、ビジネス上重要な連絡先からのニュースを見逃すことがないようにします。"
+    },
+    "painPoint2": {
+      "title": "時間の無駄",
+      "description": "20のパートナー/顧客が何をしているかを確認するために、5つのソーシャルネットワークを毎日2時間スクロールします。",
+      "solution": "Partner Centerの集中フィードでわずか5分。節約した時間=お金。"
+    },
+    "painPoint3": {
+      "title": "高コスト",
+      "description": "かさばるソーシャルリスニングシステムは月額200ドル以上で、個人や中小企業には高すぎます。",
+      "solution": "月額5〜10ドルから始まる「ちょうど十分」なリーンなツール。"
+    },
+    "painPoint4": {
+      "title": "機会を逃す",
+      "description": "顧客が投稿したことは知っているが、何と言えばいいかわからない、または購入シグナルを見逃す。",
+      "solution": "AI Ice Breakerは応答テンプレートを提案し、AI Sales Signalsは投稿で購入ニーズが検出されたときに警告します。"
+    }
+  },
+  "dashboard": {
+    "title": "あなたのプロフィール",
+    "empty": "まだプロフィールがありません。最初のプロフィールを追加して始めましょう！",
+    "addFirst": "最初のプロフィールを追加",
+    "categories": "カテゴリ",
+    "all": "すべて"
+  },
+  "feed": {
+    "title": "フィード",
+    "subtitle": "追跡中のプロフィールからの最新更新",
+    "sync": "フィードを同期",
+    "syncing": "同期中...",
+    "refresh": "更新",
+    "empty": "まだ投稿がありません",
+    "emptyDescription": "「フィードを同期」をクリックして、追跡中のプロフィールから投稿を取得するか、プロフィールカードで「フィードに表示」を有効にします。",
+    "viewOriginal": "元の記事を見る",
+    "copyLink": "リンクをコピー",
+    "copied": "コピーしました！",
+    "aiSummary": "AI要約",
+    "salesOpportunity": "販売機会",
+    "aiSuggestions": "AI応答提案",
+    "copySuggestion": "AI応答をコピーしました",
+    "publicComment": "公開コメント",
+    "privateMessage": "プライベートメッセージ",
+    "engagingQuestion": "魅力的な質問"
+  },
+  "profile": {
+    "title": "プロフィールタイトル",
+    "url": "プロフィールURL",
+    "category": "カテゴリ",
+    "notes": "メモ",
+    "add": "プロフィールを追加",
+    "edit": "プロフィールを編集",
+    "delete": "プロフィールを削除",
+    "deleteConfirm": "このプロフィールを削除してもよろしいですか？",
+    "showInFeed": "フィードに表示",
+    "lastInteracted": "最後のやり取り",
+    "relationshipScore": "関係スコア"
+  },
+  "settings": {
+    "title": "設定",
+    "language": "言語",
+    "selectLanguage": "言語を選択"
+  }
+}
+

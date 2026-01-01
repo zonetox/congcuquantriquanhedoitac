@@ -1,0 +1,117 @@
+{
+  "common": {
+    "dashboard": "Dashboard",
+    "feed": "Feed",
+    "settings": "Settings",
+    "admin": "Admin",
+    "signOut": "Sign Out",
+    "addProfile": "Add New Profile",
+    "edit": "Edit",
+    "delete": "Delete",
+    "save": "Save",
+    "cancel": "Cancel",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "close": "Close"
+  },
+  "landing": {
+    "title": "Stop Drowning in Tabs.\nBuild Stronger Relationships.",
+    "subtitle": "All important profiles of competitors, partners, and customers on a single screen. No ads, no distractions.",
+    "getStarted": "Get Started for Free",
+    "painPoint1": {
+      "title": "Lost in Newsfeed",
+      "description": "Facebook/LinkedIn algorithms hide posts from important people if you don't interact regularly.",
+      "solution": "Partner Center scans profiles directly, ensuring you never miss news from business-critical contacts."
+    },
+    "painPoint2": {
+      "title": "Time Waste",
+      "description": "Spending 2 hours daily scrolling through 5 social networks just to check what 20 partners/customers are doing.",
+      "solution": "Just 5 minutes on Partner Center's focused Newsfeed. Time saved = Money earned."
+    },
+    "painPoint3": {
+      "title": "High Cost",
+      "description": "Bulky Social Listening systems cost $200+/month, too expensive for individuals and SMEs.",
+      "solution": "A lean, \"just enough\" tool with pricing starting from just $5 - $10/month."
+    },
+    "painPoint4": {
+      "title": "Missed Opportunities",
+      "description": "You know customers posted, but don't know what to say, or miss when they're showing buying signals.",
+      "solution": "AI Ice Breaker suggests response templates, and AI Sales Signals alerts you instantly when purchase intent is detected in posts."
+    }
+  },
+  "dashboard": {
+    "title": "Your Profiles",
+    "subtitle": "{count} {count, plural, =1 {profile} other {profiles}} tracked",
+    "empty": "No profiles yet. Add your first profile to get started!",
+    "addFirst": "Add Your First Profile",
+    "categories": "Categories",
+    "all": "All",
+    "success": "Success"
+  },
+  "feed": {
+    "title": "Newsfeed",
+    "subtitle": "Latest updates from your tracked profiles",
+    "sync": "Sync Feed",
+    "syncing": "Syncing...",
+    "refresh": "Refresh",
+    "empty": "No posts yet",
+    "emptyDescription": "Click \"Sync Feed\" to fetch posts from your tracked profiles, or enable \"Show in Newsfeed\" on profile cards.",
+    "viewOriginal": "View Original",
+    "copyLink": "Copy Link",
+    "copied": "Copied!",
+    "linkCopied": "Link copied to clipboard!",
+    "noLink": "No link available",
+    "syncSuccess": "Synced! Created {count} new posts.",
+    "aiSummary": "AI Summary",
+    "salesOpportunity": "Sales Opportunity",
+    "aiSuggestions": "AI Response Suggestions",
+    "copySuggestion": "AI response copied",
+    "publicComment": "Public Comment",
+    "privateMessage": "Private Message",
+    "engagingQuestion": "Engaging Question"
+  },
+  "profile": {
+    "title": "Profile Title",
+    "url": "Profile URL",
+    "category": "Category",
+    "notes": "Notes",
+    "add": "Add Profile",
+    "edit": "Edit Profile",
+    "delete": "Delete Profile",
+    "deleteConfirm": "Are you sure you want to delete this profile?",
+    "showInFeed": "Show in Newsfeed",
+    "showInFeedDescription": "Enable to display posts from this profile in Newsfeed",
+    "lastInteracted": "Last Interacted",
+    "relationshipScore": "Relationship Score",
+    "addNew": "Add New Profile",
+    "deleteSuccess": "Profile deleted successfully!",
+    "addSuccess": "Profile added successfully!",
+    "updateSuccess": "Profile updated successfully!",
+    "urlRequired": "Please enter a URL",
+    "urlInvalid": "Please enter a valid URL (must start with http:// or https://)",
+    "titleRequired": "Please enter a title",
+    "addError": "Failed to add profile",
+    "updateError": "Failed to update profile",
+    "interactionAdded": "Interaction log added successfully",
+    "addedToFeed": "Added to feed",
+    "removedFromFeed": "Removed from feed",
+    "addInteraction": "Add Interaction Log",
+    "interactionHistory": "Interaction History",
+    "noInteractions": "No interaction logs yet",
+    "addFirstInteraction": "Add your first interaction above",
+    "interactionPlaceholder": "Enter interaction details...",
+    "interactionTypes": {
+      "note": "Note",
+      "call": "Call",
+      "message": "Message",
+      "comment": "Comment"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "selectLanguage": "Select Language"
+  }
+}
+

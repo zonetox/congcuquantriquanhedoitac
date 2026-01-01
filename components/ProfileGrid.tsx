@@ -6,6 +6,7 @@ import { ProfileCard } from "@/components/ProfileCard";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Target } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import type { Profile } from "@/lib/profiles/types";
 import type { Category } from "@/lib/categories/actions";
@@ -21,6 +22,7 @@ interface ProfileGridProps {
 }
 
 export function ProfileGrid({ profiles, isPremium = false, hasValidPremium = false, trialExpired = false, categories = [], onEdit, onDetails }: ProfileGridProps) {
+  const t = useTranslations("dashboard");
   // Tạo map category name -> color
   const categoryColorMap = new Map<string, string>();
   
@@ -43,11 +45,13 @@ export function ProfileGrid({ profiles, isPremium = false, hasValidPremium = fal
     categoryColorMap.set(cat.name, cat.color);
   });
   const router = useRouter();
+  const tProfile = useTranslations("profile");
+  const tCommon = useTranslations("common");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleDelete = async (profileId: string) => {
-    if (!confirm("Are you sure you want to delete this profile?")) {
+    if (!confirm(tProfile("deleteConfirm"))) {
       return;
     }
 
@@ -61,7 +65,7 @@ export function ProfileGrid({ profiles, isPremium = false, hasValidPremium = fal
         setError(result.error);
         toast.error(result.error);
       } else {
-        toast.success("Profile deleted successfully!");
+        toast.success(tProfile("delete") + " " + tCommon("success"));
         router.refresh();
       }
     } catch (err: any) {
@@ -82,10 +86,10 @@ export function ProfileGrid({ profiles, isPremium = false, hasValidPremium = fal
           </div>
           <div className="space-y-2">
             <h3 className="text-2xl font-bold text-slate-800">
-              No profiles yet
+              {t("empty")}
             </h3>
             <p className="text-slate-600">
-              You haven't added any profiles yet. Start tracking your competitors now! {/* eslint-disable-line react/no-unescaped-entities */}
+              {t("empty")}
             </p>
           </div>
         </div>

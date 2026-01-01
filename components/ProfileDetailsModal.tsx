@@ -6,6 +6,7 @@ import { addInteractionLog, getInteractionLogs } from "@/lib/crm/actions";
 import { toggleFeedStatus } from "@/lib/profiles/actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import type { Profile } from "@/lib/profiles/types";
 import type { InteractionLog } from "@/lib/crm/types";
 
@@ -16,6 +17,8 @@ interface ProfileDetailsModalProps {
 }
 
 export function ProfileDetailsModal({ isOpen, onClose, profile }: ProfileDetailsModalProps) {
+  const t = useTranslations("profile");
+  const tCommon = useTranslations("common");
   const router = useRouter();
   const [content, setContent] = useState("");
   const [interactionType, setInteractionType] = useState<"note" | "call" | "message" | "comment">("note");
@@ -47,7 +50,7 @@ export function ProfileDetailsModal({ isOpen, onClose, profile }: ProfileDetails
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim()) {
-      toast.error("Please enter a note");
+      toast.error(t("notes") + " " + tCommon("error"));
       return;
     }
 
@@ -57,7 +60,7 @@ export function ProfileDetailsModal({ isOpen, onClose, profile }: ProfileDetails
     if (result.error) {
       toast.error(result.error);
     } else {
-      toast.success("Interaction log added successfully");
+      toast.success(t("interactionAdded"));
       setContent("");
       setInteractionType("note");
       loadLogs(); // Reload logs
@@ -73,7 +76,7 @@ export function ProfileDetailsModal({ isOpen, onClose, profile }: ProfileDetails
       toast.error(result.error);
     } else {
       setIsInFeed(!isInFeed);
-      toast.success(isInFeed ? "Removed from feed" : "Added to feed");
+      toast.success(isInFeed ? t("removedFromFeed") : t("addedToFeed"));
       router.refresh();
     }
     setTogglingFeed(false);
@@ -144,8 +147,8 @@ export function ProfileDetailsModal({ isOpen, onClose, profile }: ProfileDetails
           <div className="neu-card rounded-neu-lg p-6 shadow-soft-out">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-semibold text-slate-800 mb-1">Show in Newsfeed</h3>
-                <p className="text-sm text-slate-600">Enable to display posts from this profile in Newsfeed</p>
+                <h3 className="text-lg font-semibold text-slate-800 mb-1">{t("showInFeed")}</h3>
+                <p className="text-sm text-slate-600">{t("showInFeedDescription")}</p>
               </div>
               <button
                 onClick={handleToggleFeed}
@@ -169,7 +172,7 @@ export function ProfileDetailsModal({ isOpen, onClose, profile }: ProfileDetails
           <div className="neu-card rounded-neu-lg p-6 shadow-soft-out">
             <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
               <Plus className="w-5 h-5 text-pastel-purple" />
-              Add Interaction Log
+              {t("addInteraction")}
             </h3>
             
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -185,7 +188,7 @@ export function ProfileDetailsModal({ isOpen, onClose, profile }: ProfileDetails
                   }`}
                 >
                   <MessageSquare className="w-4 h-4 inline mr-2" />
-                  Note
+                  {t("interactionTypes.note")}
                 </button>
                 <button
                   type="button"
@@ -197,7 +200,7 @@ export function ProfileDetailsModal({ isOpen, onClose, profile }: ProfileDetails
                   }`}
                 >
                   <Phone className="w-4 h-4 inline mr-2" />
-                  Call
+                  {t("interactionTypes.call")}
                 </button>
                 <button
                   type="button"
@@ -209,7 +212,7 @@ export function ProfileDetailsModal({ isOpen, onClose, profile }: ProfileDetails
                   }`}
                 >
                   <MessageSquare className="w-4 h-4 inline mr-2" />
-                  Message
+                  {t("interactionTypes.message")}
                 </button>
                 <button
                   type="button"
@@ -221,7 +224,7 @@ export function ProfileDetailsModal({ isOpen, onClose, profile }: ProfileDetails
                   }`}
                 >
                   <MessageCircle className="w-4 h-4 inline mr-2" />
-                  Comment
+                  {t("interactionTypes.comment")}
                 </button>
               </div>
 
@@ -230,7 +233,7 @@ export function ProfileDetailsModal({ isOpen, onClose, profile }: ProfileDetails
                 <textarea
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
-                  placeholder="Enter interaction details... (e.g., 'Đã nhắn tin hỏi thăm về dự án mới')"
+                  placeholder={t("interactionPlaceholder")}
                   rows={3}
                   disabled={loading}
                   className="w-full px-4 py-3 neu-input rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 placeholder:text-slate-400 disabled:opacity-50 disabled:cursor-not-allowed resize-none"
@@ -246,10 +249,10 @@ export function ProfileDetailsModal({ isOpen, onClose, profile }: ProfileDetails
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    Adding...
+                    {tCommon("loading")}
                   </span>
                 ) : (
-                  "Add Interaction"
+                  t("addInteraction")
                 )}
               </button>
             </form>
@@ -257,7 +260,7 @@ export function ProfileDetailsModal({ isOpen, onClose, profile }: ProfileDetails
 
           {/* Interaction Timeline */}
           <div className="neu-card rounded-neu-lg p-6 shadow-soft-out">
-            <h3 className="text-lg font-semibold text-slate-800 mb-4">Interaction History</h3>
+            <h3 className="text-lg font-semibold text-slate-800 mb-4">{t("interactionHistory")}</h3>
             
             {loadingLogs ? (
               <div className="flex items-center justify-center py-8">
@@ -266,8 +269,8 @@ export function ProfileDetailsModal({ isOpen, onClose, profile }: ProfileDetails
             ) : logs.length === 0 ? (
               <div className="text-center py-8 text-slate-500">
                 <MessageSquare className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-                <p>No interaction logs yet</p>
-                <p className="text-sm mt-1">Add your first interaction above</p>
+                <p>{t("noInteractions")}</p>
+                <p className="text-sm mt-1">{t("addFirstInteraction")}</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -285,7 +288,7 @@ export function ProfileDetailsModal({ isOpen, onClose, profile }: ProfileDetails
                     <div className="flex-1">
                       <div className="flex items-start justify-between mb-1">
                         <span className="text-xs font-semibold text-slate-600 uppercase">
-                          {log.interaction_type}
+                          {t(`interactionTypes.${log.interaction_type}`)}
                         </span>
                         <span className="text-xs text-slate-400">
                           {formatDate(log.created_at)}

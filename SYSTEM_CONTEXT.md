@@ -133,6 +133,7 @@ CREATE TABLE public.user_profiles (
 | `role` | TEXT | DEFAULT 'user' | Role: 'user' hoặc 'admin' |
 | `is_premium` | BOOLEAN | DEFAULT false | Premium status (trả phí) |
 | `trial_started_at` | TIMESTAMP WITH TIME ZONE | DEFAULT NOW() | Ngày bắt đầu trial (15 ngày miễn phí) |
+| `locale` | TEXT | DEFAULT 'en', NOT NULL | Language preference của user (en, vi, es, fr, de, ja, zh) |
 | `updated_at` | TIMESTAMP WITH TIME ZONE | DEFAULT now() | Thời gian cập nhật |
 
 **Indexes**:
@@ -292,8 +293,8 @@ CREATE TABLE public.profile_posts (
 | `post_url` | TEXT | NULLABLE | Link đến bài đăng gốc |
 | `image_url` | TEXT | NULLABLE | Link đến hình ảnh bài đăng (nếu có) |
 | `published_at` | TIMESTAMP WITH TIME ZONE | NULLABLE | Thời gian đăng bài (từ source) |
-| `ai_analysis` | JSONB | NULLABLE | Phân tích AI (tóm tắt, Sales Signals) - coming soon |
-| `ai_suggestions` | JSONB | NULLABLE | Gợi ý AI (Ice Breakers) - coming soon |
+| `ai_analysis` | JSONB | NULLABLE | Phân tích AI (tóm tắt, Sales Signals) - ✅ Module 2B |
+| `ai_suggestions` | JSONB | NULLABLE | Gợi ý AI (Ice Breakers) - ✅ Module 2B |
 | `created_at` | TIMESTAMP WITH TIME ZONE | DEFAULT now() | Thời gian tạo record |
 
 **Indexes** (Newsfeed v2A):
@@ -307,9 +308,27 @@ CREATE TABLE public.profile_posts (
 - Policy: "Users view own posts" (SELECT)
 - Chỉ cho phép user xem posts của chính họ: `auth.uid() = user_id`
 
+**Cấu trúc JSON cho `ai_analysis` (Module 2B)**:
+```json
+{
+  "summary": "Tóm tắt bài đăng dưới 15 từ",
+  "signal": "Cơ hội bán hàng" | "Tin cá nhân" | "Tin thị trường" | "Khác"
+}
+```
+
+**Cấu trúc JSON cho `ai_suggestions` (Module 2B)**:
+```json
+[
+  "Câu comment công khai",
+  "Câu tin nhắn riêng tư",
+  "Câu hỏi mở để bắt đầu cuộc trò chuyện"
+]
+```
+
 **⚠️ QUAN TRỌNG**: 
 - Posts được tự động xóa khi profile bị xóa (CASCADE)
 - Chỉ hiển thị posts từ profiles có `is_in_feed = true`
+- AI analysis được tự động chạy khi sync feed (Module 2B)
 - `published_at` có thể NULL nếu không lấy được từ source
 
 ### 6. Bảng `public.admin_logs` ✅ Admin Activity Logging
@@ -1090,6 +1109,133 @@ const result = await addProfile({
 
 ---
 
+## 🤖 AI MODULE (Module 2B - AI Intelligence)
+
+### 1. AI Analyzer Service (`lib/ai/analyzer.ts`)
+
+**Mục đích**: Phân tích bài đăng với OpenAI API để tạo tóm tắt, xác định Sales Signals, và gợi ý Ice Breakers.
+
+**Function chính**:
+
+#### `analyzePostWithAI(content: string): Promise<{data: AIAnalysisResult | null, error: string | null}>`
+- **Input**: Nội dung bài đăng (string)
+- **Output**: 
+  - `summary`: Tóm tắt bài đăng (< 15 từ, tiếng Việt)
+  - `signal`: Sales Signal (tiếng Việt)
+  - `ice_breakers`: Array 3 câu phản hồi (tiếng Việt)
+- **Model**: `gpt-4o-mini` (tiết kiệm chi phí)
+- **Temperature**: 0.7
+- **Max Tokens**: 500
+- **Response Format**: JSON Object
+- **Library**: Sử dụng thư viện `openai` (npm install openai)
+
+**Sales Signals** (tiếng Việt):
+- `"Cơ hội bán hàng"`: Bài đăng có nhu cầu mua hàng hoặc cơ hội bán hàng
+- `"Tin cá nhân"`: Cập nhật cá nhân (sinh nhật, thành tích, gia đình)
+- `"Tin thị trường"`: Tin tức thị trường, xu hướng ngành
+- `"Khác"`: Các loại khác
+
+**Ice Breakers** (Array string):
+- Phần tử 1: Câu comment công khai
+- Phần tử 2: Câu tin nhắn riêng tư
+- Phần tử 3: Câu hỏi mở để bắt đầu cuộc trò chuyện
+
+**Environment Variable**:
+- `OPENAI_API_KEY`: API key từ OpenAI (server-side only)
+
+**Error Handling**:
+- Nếu không có `OPENAI_API_KEY` → Trả về error, không crash
+- Nếu API call fail → Log error và trả về error message
+- Nếu JSON parse fail → Trả về error message
+
+### 2. AI Types (`lib/ai/types.ts`)
+
+**Interfaces**:
+
+```typescript
+interface AIAnalysisResult {
+  summary: string; // Tóm tắt < 15 từ (tiếng Việt)
+  signal: "Cơ hội bán hàng" | "Tin cá nhân" | "Tin thị trường" | "Khác";
+  ice_breakers: string[]; // Array 3 câu phản hồi (tiếng Việt)
+}
+```
+
+### 3. Integration với Newsfeed
+
+**Tự động hóa**:
+- Khi `syncFeed()` được gọi, mỗi bài đăng mới sẽ tự động được phân tích với AI
+- Kết quả được lưu vào:
+  - `profile_posts.ai_analysis`: `{summary, signal}`
+  - `profile_posts.ai_suggestions`: `string[]` (ice_breakers array)
+- Nếu AI analysis fail, post vẫn được tạo (không có AI data)
+- Error handling: Hiển thị thông báo "Hệ thống AI đang bảo trì" nếu AI fail, không làm hỏng giao diện
+
+**UI Display** (`components/FeedContent.tsx`):
+- **AI Summary**: Hiển thị ngay dưới Post Header với màu nền Pastel (mint/purple gradient), style Neumorphism nhẹ nhàng
+- **Sales Signal Tag**: Nếu `signal === "Cơ hội bán hàng"`, hiển thị tag màu đỏ tươi với icon `AlertCircle` và pulse animation
+- **Ice Breaker Buttons**: 3 nút Neumorphism style với icons:
+  - `MessageCircle` cho comment công khai (phần tử 1)
+  - `Send` cho tin nhắn riêng (phần tử 2)
+  - `Lightbulb` cho câu hỏi mở (phần tử 3)
+- **Copy Functionality**: Click vào Ice Breaker button → Tự động copy text vào clipboard → Toast notification "Đã sao chép câu trả lời AI"
+
+**Neumorphism Styling**:
+- AI Summary: `bg-gradient-to-r from-pastel-mint/30 to-pastel-purple/30`, `shadow-soft-in`
+- Sales Signal Tag: `bg-red-100`, `text-red-700`, `shadow-soft-out`, `animate-pulse` cho icon
+- Ice Breaker Buttons: `neu-button`, `rounded-lg`, `shadow-soft-out`, `hover:shadow-soft-button-pressed`
+
+### 4. AI Prompt Structure
+
+**System Prompt** (tiếng Việt):
+```
+Bạn là một chuyên gia phân tích bán hàng. Luôn trả về JSON hợp lệ.
+```
+
+**User Prompt Template** (tiếng Việt):
+```
+Bạn là một chuyên gia phân tích bán hàng. Hãy đọc bài đăng sau và trả về định dạng JSON gồm:
+
+summary: Tóm tắt bài đăng dưới 15 từ.
+
+signal: Phân loại vào 1 trong 4 nhóm: 'Cơ hội bán hàng', 'Tin cá nhân', 'Tin thị trường', 'Khác'.
+
+ice_breakers: Gợi ý 3 câu phản hồi: 1 câu comment, 1 câu inbox, 1 câu hỏi mở.
+
+Post content:
+{content}
+
+Respond in JSON format:
+{
+  "summary": "One-line summary under 15 words",
+  "signal": "sales_opportunity" | "personal_update" | "market_news" | "other",
+  "suggestions": [
+    {
+      "type": "public_comment",
+      "text": "Public comment suggestion"
+    },
+    {
+      "type": "private_message",
+      "text": "Private message suggestion"
+    },
+    {
+      "type": "engaging_question",
+      "text": "Engaging question suggestion"
+    }
+  ]
+}
+```
+
+**⚠️ QUAN TRỌNG**: 
+- AI analysis chỉ chạy khi có `OPENAI_API_KEY` trong environment variables
+- Sử dụng thư viện `openai` (npm install openai) thay vì fetch trực tiếp
+- Nếu không có API key hoặc API fail, post vẫn được tạo nhưng không có AI data
+- Error handling: Hiển thị thông báo "Hệ thống AI đang bảo trì" khi AI fail, không làm hỏng giao diện Newsfeed
+- Content được truncate đến 2000 ký tự để tránh vượt token limit
+- Response luôn được validate và format đúng structure trước khi lưu vào database
+- Format: `ai_analysis` = `{summary, signal}`, `ai_suggestions` = `string[]` (ice_breakers)
+
+---
+
 ## 📦 ENVIRONMENT VARIABLES
 
 **File**: `.env.local` (⚠️ KHÔNG commit lên Git)
@@ -1101,15 +1247,160 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
 # Lemon Squeezy
-# Lemon Squeezy
 NEXT_PUBLIC_LEMON_SQUEEZY_CHECKOUT_URL=https://your-store.lemonsqueezy.com/checkout/buy/your-product-id
 NEXT_PUBLIC_LEMON_SQUEEZY_CUSTOMER_PORTAL_URL=https://app.lemonsqueezy.com/my-account
 LEMON_SQUEEZY_WEBHOOK_SECRET=your-webhook-secret
+
+# OpenAI (Module 2B - AI Intelligence)
+OPENAI_API_KEY=sk-your-openai-api-key
 ```
 
 **⚠️ QUAN TRỌNG**: 
 - `NEXT_PUBLIC_*` variables có thể truy cập từ client-side
-- `SUPABASE_SERVICE_ROLE_KEY` và `LEMON_SQUEEZY_WEBHOOK_SECRET` chỉ dùng server-side
+- `SUPABASE_SERVICE_ROLE_KEY`, `LEMON_SQUEEZY_WEBHOOK_SECRET`, và `OPENAI_API_KEY` chỉ dùng server-side
+
+---
+
+## 🌍 INTERNATIONALIZATION (i18n) - Module 2C
+
+### 1. Setup và Cấu hình
+
+**Library**: `next-intl` (npm install next-intl)
+
+**Cấu trúc**:
+- `i18n/request.ts`: Định nghĩa locales và types
+- `messages/`: Thư mục chứa translation files
+  - `en.json` (English - default)
+  - `vi.json` (Tiếng Việt)
+  - `es.json` (Español)
+  - `fr.json` (Français)
+  - `de.json` (Deutsch)
+  - `ja.json` (日本語)
+  - `zh.json` (中文)
+
+**Locales hỗ trợ**:
+```typescript
+export const locales = ['en', 'vi', 'es', 'fr', 'de', 'ja', 'zh'] as const;
+export type Locale = (typeof locales)[number];
+```
+
+**Locale Storage**: Database + Cookie (dual storage)
+- **Primary**: Database (`user_profiles.locale`) - Lưu preference của logged-in users
+- **Fallback**: Cookie (`locale`) - Dùng cho non-logged-in users hoặc khi database query fails
+- Cookie name: `locale`
+- Default: `en`
+- Max age: 1 year
+- **Server Action**: `lib/user/actions.ts`
+  - `updateUserLocale(locale)`: Cập nhật locale trong database
+  - `getUserLocale()`: Lấy locale từ database (fallback về cookie nếu fail)
+
+### 2. Implementation
+
+**Layout** (`app/layout.tsx`):
+- Load locale từ cookie
+- Wrap children với `NextIntlClientProvider`
+- Set `lang` attribute trên `<html>` tag
+
+**Middleware** (`middleware.ts`):
+- Không cần xử lý locale routing (cookie-based)
+- Chỉ xử lý Supabase auth
+
+**Components**:
+- Sử dụng `useTranslations()` hook từ `next-intl`
+- Pattern: `const t = useTranslations("namespace")`
+- Ví dụ: `t("common.dashboard")`, `t("feed.title")`
+
+### 3. Translation Namespaces
+
+**`common`**: Common UI elements
+- dashboard, feed, settings, admin, signOut, addProfile, edit, delete, save, cancel, loading, error, success, close
+
+**`landing`**: Landing page content
+- title, subtitle, getStarted
+- painPoint1-4: title, description, solution
+
+**`dashboard`**: Dashboard page
+- title, subtitle (with pluralization), empty, addFirst, categories, all
+
+**`feed`**: Newsfeed page
+- title, subtitle, sync, syncing, refresh, empty, emptyDescription
+- viewOriginal, copyLink, copied, linkCopied, noLink, syncSuccess
+- aiSummary, salesOpportunity, aiSuggestions, copySuggestion
+- publicComment, privateMessage, engagingQuestion
+
+**`profile`**: Profile management
+- title, url, category, notes, add, addNew, edit, delete
+- deleteConfirm, deleteSuccess, addSuccess, updateSuccess
+- urlRequired, urlInvalid, titleRequired, addError, updateError
+- showInFeed, showInFeedDescription, lastInteracted, relationshipScore
+- interactionAdded, addedToFeed, removedFromFeed
+- addInteraction, interactionHistory, noInteractions, addFirstInteraction, interactionPlaceholder
+- interactionTypes: note, call, message, comment
+
+**`settings`**: Settings page
+- title, language, selectLanguage
+
+### 4. Language Selector Component
+
+**File**: `components/LanguageSelector.tsx`
+
+**Features**:
+- Dropdown menu với 7 ngôn ngữ
+- Hiển thị tên ngôn ngữ theo ngôn ngữ hiện tại
+- Lưu preference vào cookie
+- Reload page sau khi đổi ngôn ngữ
+
+**Location**: Header (desktop và mobile)
+
+### 5. Usage trong Components
+
+**Pattern**:
+```typescript
+import { useTranslations } from "next-intl";
+
+export function MyComponent() {
+  const t = useTranslations("namespace");
+  const tCommon = useTranslations("common"); // Nếu cần common translations
+  
+  return (
+    <div>
+      <h1>{t("title")}</h1>
+      <button>{tCommon("save")}</button>
+    </div>
+  );
+}
+```
+
+**Pluralization**:
+```typescript
+// messages/en.json
+"subtitle": "{count} {count, plural, =1 {profile} other {profiles}} tracked"
+
+// Usage
+{t("subtitle", { count: profiles.length })}
+```
+
+### 6. Components đã cập nhật
+
+✅ **LandingPage.tsx**: Tất cả text đã được dịch
+✅ **FeedContent.tsx**: Tất cả text đã được dịch
+✅ **DashboardContent.tsx**: Tất cả text đã được dịch
+✅ **ProfileGrid.tsx**: Tất cả text đã được dịch
+✅ **AddProfileModal.tsx**: Tất cả text đã được dịch
+✅ **EditProfileModal.tsx**: Tất cả text đã được dịch
+✅ **ProfileDetailsModal.tsx**: Tất cả text đã được dịch
+✅ **Header.tsx**: Navigation và LanguageSelector
+
+**⚠️ QUAN TRỌNG**: 
+- Giao diện mặc định là tiếng Anh (phục vụ nước ngoài)
+- User có thể chọn ngôn ngữ từ LanguageSelector
+- **Logged-in users**: Preference được lưu trong database (`user_profiles.locale`)
+- **Non-logged-in users**: Preference được lưu trong cookie
+- Locale được load từ database trước, fallback về cookie nếu fail
+- Tất cả UI text phải sử dụng translations, không hardcode
+- **Database Schema**: Column `locale` trong `user_profiles` với CHECK constraint (en, vi, es, fr, de, ja, zh)
+
+---
 
 ---
 

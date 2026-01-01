@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getValidApiKey, updateApiKeyUsage, markApiKeyAsInactive } from "@/lib/api-keys/actions";
+import { getValidApiKey, updateApiKeyUsage } from "@/lib/api-keys/actions";
 
 /**
  * Cron job để quét feed mỗi 1 giờ
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
         // await savePostsToDatabase(posts, profile.id);
 
         // Cập nhật usage của API key
-        await updateApiKeyUsage(apiKey.id, true, false);
+        await updateApiKeyUsage(apiKey.id, true);
 
         processed++;
       } catch (error: any) {

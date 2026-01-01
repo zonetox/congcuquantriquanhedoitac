@@ -7,6 +7,7 @@ import { AddProfileModal } from "@/components/AddProfileModal";
 import { EditProfileModal } from "@/components/EditProfileModal";
 import { ProfileDetailsModal } from "@/components/ProfileDetailsModal";
 import { UpgradeButton } from "@/components/UpgradeButton";
+import { useTranslations } from "next-intl";
 import type { Profile } from "@/lib/profiles/types";
 import type { Category } from "@/lib/categories/actions";
 
@@ -20,6 +21,8 @@ interface DashboardContentProps {
 }
 
 export function DashboardContent({ profiles, isPremium, hasValidPremium = false, trialExpired = false, currentProfileCount, categories = [] }: DashboardContentProps) {
+  const t = useTranslations("dashboard");
+  const tCommon = useTranslations("common");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
   const [detailsProfile, setDetailsProfile] = useState<Profile | null>(null);
@@ -80,10 +83,10 @@ export function DashboardContent({ profiles, isPremium, hasValidPremium = false,
         <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
           <div>
             <h2 className="text-3xl font-bold text-slate-800">
-              Your Profiles
+              {t("title")}
             </h2>
             <p className="text-slate-600 mt-1">
-              {profiles.length} {profiles.length === 1 ? "profile" : "profiles"} tracked
+              {t("subtitle", { count: profiles.length })}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -94,7 +97,7 @@ export function DashboardContent({ profiles, isPremium, hasValidPremium = false,
               className="flex items-center gap-2 px-6 py-3 neu-button bg-gradient-to-r from-emerald-400 to-blue-400 text-white rounded-full shadow-soft-button hover:shadow-soft-button-pressed active:shadow-soft-button-pressed transition-all transform active:scale-95 font-medium"
             >
               <Plus className="w-5 h-5" />
-              <span>Add New Profile</span>
+              <span>{tCommon("addProfile")}</span>
             </button>
           </div>
         </div>
@@ -113,7 +116,7 @@ export function DashboardContent({ profiles, isPremium, hasValidPremium = false,
               backgroundColor: selectedCategory === null ? "rgba(255, 255, 255, 0.7)" : undefined,
             }}
           >
-            All ({profiles.length})
+            {t("all")} ({profiles.length})
           </button>
 
           {/* Category Tabs */}
