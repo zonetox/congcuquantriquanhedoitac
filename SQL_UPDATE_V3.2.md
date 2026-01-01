@@ -194,12 +194,22 @@ ORDER BY ordinal_position;
 
 Sau khi chạy SQL:
 
-- [ ] Đã thêm tất cả các cột còn thiếu (category, notes, rss_url, has_new_update, is_in_feed, updated_at)
-- [ ] Đã tạo trigger tự động cập nhật updated_at
-- [ ] Đã kiểm tra RLS đã được bật
-- [ ] Đã kiểm tra/tạo Policy UPDATE cho phép users update profiles của chính họ
-- [ ] Đã tạo indexes cho category và is_in_feed (tùy chọn)
-- [ ] Đã verify schema cuối cùng có đầy đủ các cột
+- [x] Đã thêm tất cả các cột còn thiếu (category, notes, rss_url, has_new_update, is_in_feed, updated_at) ✅
+- [ ] Đã tạo trigger tự động cập nhật updated_at (chạy `SQL_FINALIZE_V3.2.sql`)
+- [x] Đã kiểm tra RLS đã được bật ✅
+- [x] Đã kiểm tra Policy UPDATE - Policy "Users can manage their own tracked profiles" với `cmd = ALL` đã bao gồm UPDATE ✅
+- [ ] Đã tạo indexes cho category và is_in_feed (chạy `SQL_FINALIZE_V3.2.sql` - tùy chọn)
+- [x] Đã verify schema cuối cùng có đầy đủ các cột ✅
+
+---
+
+## 🔧 BƯỚC TIẾP THEO - Chạy SQL_FINALIZE_V3.2.sql
+
+Sau khi đã thêm các cột, chạy file `SQL_FINALIZE_V3.2.sql` để:
+1. Tạo trigger tự động cập nhật `updated_at`
+2. Cập nhật `updated_at` cho các records cũ (nếu có)
+3. Tạo indexes để tối ưu performance
+4. Verify tất cả cấu hình
 
 ---
 
