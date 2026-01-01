@@ -1,7 +1,7 @@
 "use client";
 
 import { getFaviconUrl, getDomainFromUrl } from "@/lib/utils/url";
-import { Trash2, Globe, Radio, Crown, ExternalLink, Lock, Rss } from "lucide-react";
+import { Trash2, Globe, Radio, Crown, ExternalLink, Lock, Rss, Edit2 } from "lucide-react";
 import { useState, memo } from "react";
 import Image from "next/image";
 import { toggleFeedStatus } from "@/lib/profiles/actions";
@@ -13,6 +13,7 @@ import type { Profile } from "@/lib/profiles/types";
 interface ProfileCardProps {
   profile: Profile;
   onDelete: (profileId: string) => void;
+  onEdit?: (profile: Profile) => void; // Callback để mở EditModal
   isDeleting?: boolean;
   isPremium?: boolean;
   isBlurred?: boolean; // Profile bị blur (trial expired, từ thứ 6 trở đi)
@@ -20,7 +21,7 @@ interface ProfileCardProps {
   animationDelay?: number; // Delay cho animation (ms)
 }
 
-export const ProfileCard = memo(function ProfileCard({ profile, onDelete, isDeleting = false, isPremium = false, isBlurred = false, categoryColor, animationDelay = 0 }: ProfileCardProps) {
+export const ProfileCard = memo(function ProfileCard({ profile, onDelete, onEdit, isDeleting = false, isPremium = false, isBlurred = false, categoryColor, animationDelay = 0 }: ProfileCardProps) {
   const [faviconError, setFaviconError] = useState(false);
   const [isTogglingFeed, setIsTogglingFeed] = useState(false);
   const router = useRouter();
@@ -95,21 +96,38 @@ export const ProfileCard = memo(function ProfileCard({ profile, onDelete, isDele
         </div>
       )}
 
-      {/* Action Buttons - Neumorphism Style */}
-      <div className="absolute top-3 right-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-        {/* Add to Feed Toggle */}
+      {/* RSS Icon - Always visible, different color when added to feed */}
+      <div className="absolute top-3 right-3 z-10">
         <button
           onClick={handleToggleFeed}
           disabled={isTogglingFeed || isBlurred}
           className={`p-2 neu-icon-box rounded-xl transition-all disabled:opacity-50 active:shadow-soft-button-pressed ${
             profile.is_in_feed
-              ? "text-emerald-600"
-              : "text-slate-500 hover:text-emerald-600"
+              ? "text-emerald-600 bg-emerald-50"
+              : "text-slate-400 hover:text-emerald-600"
           }`}
           title={profile.is_in_feed ? "Remove from feed" : "Add to feed"}
         >
           <Rss className={`w-5 h-5 ${isTogglingFeed ? "animate-spin" : ""}`} />
         </button>
+      </div>
+
+      {/* Action Buttons - Neumorphism Style (Edit & Delete, shown on hover) */}
+      <div className="absolute top-3 right-12 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+        {/* Edit Button */}
+        {onEdit && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(profile);
+            }}
+            disabled={isBlurred}
+            className="p-2 neu-icon-box rounded-xl text-slate-500 hover:text-blue-500 transition-all disabled:opacity-50 active:shadow-soft-button-pressed"
+            title="Edit profile"
+          >
+            <Edit2 className="w-5 h-5" />
+          </button>
+        )}
         {/* Delete Button */}
         <button
           onClick={handleDelete}

@@ -79,6 +79,79 @@ export async function addProfile(
   };
 }
 
+/**
+ * Cập nhật profile (cho regular users)
+ */
+export async function updateProfile(
+  profileId: string,
+  updates: {
+    title?: string;
+    url?: string;
+    category?: string;
+    notes?: string;
+  }
+): Promise<{
+  success: boolean;
+  error: string | null;
+}> {
+  const supabase = await createClient();
+
+  // Get current user
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return {
+      success: false,
+      error: "You need to sign in to update a profile.",
+    };
+  }
+
+  // Validate URL nếu có update URL
+  if (updates.url) {
+    try {
+      new URL(updates.url);
+    } catch {
+      return {
+        success: false,
+        error: "Invalid URL. Please enter a full URL (e.g., https://example.com)",
+      };
+    }
+  }
+
+  // Prepare update data (chỉ update các field được cung cấp)
+  const updateData: any = {};
+  if (updates.title !== undefined) updateData.title = updates.title.trim();
+  if (updates.url !== undefined) updateData.url = updates.url.trim();
+  if (updates.category !== undefined) updateData.category = updates.category.trim() || "General";
+  if (updates.notes !== undefined) updateData.notes = updates.notes.trim() || null;
+
+  // Update profile (RLS sẽ đảm bảo user chỉ update được profile của chính họ)
+  const { error: updateError } = await supabase
+    .from("profiles_tracked")
+    .update(updateData)
+    .eq("id", profileId)
+    .eq("user_id", user.id); // Double check security
+
+  if (updateError) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("[updateProfile] Database error:", updateError);
+    }
+    return {
+      success: false,
+      error: updateError.message || "Unable to update profile. Please try again.",
+    };
+  }
+
+  revalidatePath("/");
+  return {
+    success: true,
+    error: null,
+  };
+}
+
 export async function toggleFeedStatus(profileId: string, isInFeed: boolean) {
   const supabase = await createClient();
 

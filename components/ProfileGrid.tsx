@@ -16,9 +16,10 @@ interface ProfileGridProps {
   hasValidPremium?: boolean; // is_premium === true HOẶC đang trong trial
   trialExpired?: boolean; // Trial đã hết hạn và không phải premium
   categories?: Category[]; // Categories để lấy màu
+  onEdit?: (profile: Profile) => void; // Callback để mở EditModal
 }
 
-export function ProfileGrid({ profiles, isPremium = false, hasValidPremium = false, trialExpired = false, categories = [] }: ProfileGridProps) {
+export function ProfileGrid({ profiles, isPremium = false, hasValidPremium = false, trialExpired = false, categories = [], onEdit }: ProfileGridProps) {
   // Tạo map category name -> color
   const categoryColorMap = new Map<string, string>();
   
@@ -115,6 +116,7 @@ export function ProfileGrid({ profiles, isPremium = false, hasValidPremium = fal
               key={profile.id}
               profile={profile}
               onDelete={handleDelete}
+              onEdit={onEdit}
               isDeleting={deletingId === profile.id}
               isPremium={isPremium}
               isBlurred={shouldBlur}

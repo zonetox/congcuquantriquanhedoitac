@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Plus } from "lucide-react";
 import { ProfileGrid } from "@/components/ProfileGrid";
 import { AddProfileModal } from "@/components/AddProfileModal";
+import { EditProfileModal } from "@/components/EditProfileModal";
 import { UpgradeButton } from "@/components/UpgradeButton";
 import type { Profile } from "@/lib/profiles/types";
 import type { Category } from "@/lib/categories/actions";
@@ -19,6 +20,54 @@ interface DashboardContentProps {
 
 export function DashboardContent({ profiles, isPremium, hasValidPremium = false, trialExpired = false, currentProfileCount, categories = [] }: DashboardContentProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null); // null = All
+
+  // Default categories với màu
+  const defaultCategories: Record<string, string> = {
+    General: "#64748b",
+    Competitor: "#ef4444",
+    Partner: "#10b981",
+    Customer: "#3b82f6",
+    Other: "#8b5cf6",
+  };
+
+  // Tạo map category name -> color
+  const categoryColorMap = useMemo(() => {
+    const map = new Map<string, string>();
+    // Thêm default colors
+    Object.entries(defaultCategories).forEach(([name, color]) => {
+      map.set(name, color);
+    });
+    // Thêm user-defined categories (override defaults)
+    categories.forEach((cat) => {
+      map.set(cat.name, cat.color);
+    });
+    return map;
+  }, [categories]);
+
+  // Tính số lượng profiles theo category
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    profiles.forEach((profile) => {
+      const cat = profile.category || "General";
+      counts[cat] = (counts[cat] || 0) + 1;
+    });
+    return counts;
+  }, [profiles]);
+
+  // Lấy tất cả categories (default + user-defined)
+  const allCategories = useMemo(() => {
+    const defaultCats = Object.keys(defaultCategories);
+    const userCats = categories.map((c) => c.name);
+    return Array.from(new Set([...defaultCats, ...userCats]));
+  }, [categories]);
+
+  // Filter profiles theo category được chọn
+  const filteredProfiles = useMemo(() => {
+    if (!selectedCategory) return profiles;
+    return profiles.filter((p) => (p.category || "General") === selectedCategory);
+  }, [profiles, selectedCategory]);
 
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -45,15 +94,58 @@ export function DashboardContent({ profiles, isPremium, hasValidPremium = false,
             </button>
           </div>
         </div>
+
+        {/* Category Tabs */}
+        <div className="flex flex-wrap gap-2 mt-6">
+          {/* All Tab */}
+          <button
+            onClick={() => setSelectedCategory(null)}
+            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+              selectedCategory === null
+                ? "neu-card shadow-soft-out text-slate-800"
+                : "text-slate-600 hover:bg-slate-100"
+            }`}
+            style={{
+              backgroundColor: selectedCategory === null ? "rgba(255, 255, 255, 0.7)" : undefined,
+            }}
+          >
+            All ({profiles.length})
+          </button>
+
+          {/* Category Tabs */}
+          {allCategories.map((catName) => {
+            const count = categoryCounts[catName] || 0;
+            const color = categoryColorMap.get(catName) || "#64748b";
+            const isActive = selectedCategory === catName;
+
+            return (
+              <button
+                key={catName}
+                onClick={() => setSelectedCategory(catName)}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  isActive
+                    ? "text-white shadow-soft-out"
+                    : "text-slate-600 hover:bg-slate-100"
+                }`}
+                style={{
+                  backgroundColor: isActive ? color : undefined,
+                }}
+              >
+                {catName} ({count})
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Profiles Grid */}
       <ProfileGrid 
-        profiles={profiles} 
+        profiles={filteredProfiles} 
         isPremium={isPremium}
         hasValidPremium={hasValidPremium}
         trialExpired={trialExpired}
         categories={categories}
+        onEdit={setEditingProfile}
       />
 
       {/* Floating Add Button - Neumorphism Style */}
@@ -72,6 +164,15 @@ export function DashboardContent({ profiles, isPremium, hasValidPremium = false,
         currentProfileCount={currentProfileCount}
         isPremium={isPremium}
       />
+
+      {/* Edit Profile Modal */}
+      {editingProfile && (
+        <EditProfileModal
+          isOpen={!!editingProfile}
+          onClose={() => setEditingProfile(null)}
+          profile={editingProfile}
+        />
+      )}
     </main>
   );
 }

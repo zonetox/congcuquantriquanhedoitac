@@ -249,6 +249,7 @@ Partner Relationship Management/
 │   │   └── login-form.tsx        # Login/Register form
 │   ├── AddProfileForm.tsx        # ⚠️ DEPRECATED: Dùng AddProfileModal thay thế
 │   ├── AddProfileModal.tsx       # ✅ Modal form để thêm profile
+│   ├── EditProfileModal.tsx      # ✅ Modal form để chỉnh sửa profile (v3.2)
 │   ├── DashboardContent.tsx     # Dashboard container
 │   ├── Header.tsx                # ✅ Header component (mobile + desktop)
 │   ├── LandingPage.tsx           # Landing page (chưa đăng nhập)
@@ -501,6 +502,29 @@ const result = await addProfile({
 2. ✅ Xóa profile chỉ nếu `user_id` khớp (RLS sẽ tự động enforce)
 3. ✅ Revalidate path
 
+#### `updateProfile(profileId, updates)` ✅ MỚI (v3.2)
+
+**Mục đích**: Cập nhật profile (cho regular users)
+
+**Parameters**:
+- `profileId` (string, required): ID của profile cần update
+- `updates` (object, required): Object chứa các field cần update
+  - `title?` (string, optional): Tên hiển thị mới
+  - `url?` (string, optional): URL mới (phải validate)
+  - `category?` (string, optional): Category mới
+  - `notes?` (string, optional): Notes mới
+
+**Logic**:
+1. ✅ Kiểm tra authentication
+2. ✅ Validate URL nếu có update URL
+3. ✅ Update vào `profiles_tracked` với filter `user_id = current_user.id` (RLS đảm bảo security)
+4. ✅ Revalidate path để cập nhật UI
+
+**Return**:
+```typescript
+{ success: boolean, error?: string }
+```
+
 #### `getProfiles()`
 
 **Mục đích**: Lấy danh sách profiles của user hiện tại
@@ -584,13 +608,20 @@ const result = await addProfile({
 
 **Features**:
 - Header với số lượng profiles
-- Profile Grid (responsive)
+- **Category Tabs** (v3.2): 
+  - Tab "All" hiển thị tất cả profiles
+  - Tabs theo từng category với số lượng profiles và màu nền theo category color
+  - Click tab để filter profiles theo category
+  - Màu nền tab active = màu category
+- Profile Grid (responsive, filtered theo category được chọn)
 - **Floating Add Button** (góc phải dưới, fixed position) → mở `AddProfileModal`
   - Icon: Plus với rotate animation khi hover
   - Gradient background: emerald-600 to blue-600
   - Z-index: 40 (trên các elements khác)
 - Upgrade Button (nếu chưa Premium)
-- **Modal**: Sử dụng `AddProfileModal` component (Radix UI Dialog)
+- **Modals**: 
+  - `AddProfileModal`: Thêm profile mới
+  - `EditProfileModal`: Chỉnh sửa profile (v3.2)
 
 ### 2.5. Sidebar (`components/Sidebar.tsx`) ✅ MỚI
 
@@ -635,24 +666,43 @@ const result = await addProfile({
 **Fields**:
 - URL (required, auto-normalize)
 - Title (required, auto-suggest từ domain)
-- Category (Premium only, disabled cho Free)
-  - **Free users**: Chỉ được chọn "General" (không được chọn "Competitor")
-  - **Premium users**: Được chọn tất cả categories
-- Notes (Premium only, disabled cho Free)
+- Category (v3.2: Tất cả users có thể chọn tất cả categories)
+- Notes (v3.2: Tất cả users có thể sử dụng)
 
 **Features**:
 - Auto-detect favicon từ URL
 - URL validation (phải có http/https)
-- Free limit warning (5 profiles)
 - Loading state với spinner
 - Toast notifications
-- Membership-based category restrictions
+- **Logic mới (v3.2)**: Tất cả users có full features, không còn giới hạn
 
 **Implementation Notes**:
 - Gọi `addProfile()` với parameters riêng biệt (không phải object)
 - Sử dụng `e.clipboardData.getData("text")` để lấy text từ clipboard (không dùng `getText()`)
 - Notes phải là `undefined` nếu empty, không dùng `null`
-- Free users chỉ thấy `FREE_CATEGORIES` (chỉ "General"), Premium users thấy `CATEGORIES` (tất cả)
+
+### 3.5. Edit Profile Modal (`components/EditProfileModal.tsx`) ✅ MỚI (v3.2)
+
+**Mục đích**: Modal form để chỉnh sửa profile đã có
+
+**Fields**:
+- URL (required, auto-normalize)
+- Title (required)
+- Category (có thể thay đổi)
+- Notes (có thể thay đổi)
+
+**Features**:
+- Pre-fill form với data hiện tại của profile
+- Auto-detect favicon từ URL khi URL thay đổi
+- URL validation (phải có http/https)
+- Loading state với spinner
+- Toast notifications
+- Gọi `updateProfile()` để cập nhật database
+
+**Implementation Notes**:
+- Nhận `profile` prop để pre-fill form
+- Gọi `updateProfile(profileId, updates)` với object chứa các field cần update
+- Revalidate path sau khi update thành công
 
 ### 4. Admin Dashboard (`components/admin/AdminDashboard.tsx`) ✅ MỚI
 
@@ -719,8 +769,13 @@ const result = await addProfile({
   - **Custom categories**: Màu sắc từ `categories.color` trong database (pass từ ProfileGrid)
   - Border với 30% opacity của category color
   - Props: `categoryColor` (hex color string)
+- **RSS Icon** (v3.2): Luôn hiển thị ở góc trên bên phải
+  - Màu emerald-600 khi đã add vào feed (`is_in_feed = true`)
+  - Màu slate-400 khi chưa add vào feed
+  - Click để toggle feed status
+- **Edit Button** (v3.2): Hiển thị khi hover, mở `EditProfileModal`
+- **Delete Button**: Hiển thị khi hover
 - AI Update icon (Radio icon, top-left, gray nếu `has_new_update = false`)
-- Delete button (top-right, hiện khi hover)
 - Premium crown icon (top-right, nếu user Premium)
 - Hover effects: scale, shadow, border color change
 - Click to open URL in new tab
@@ -1117,10 +1172,26 @@ Trước khi commit code, đảm bảo:
 ---
 
 **📅 Last Updated**: 2024-12-19
-**Version**: 3.1.0 (Landing Page & Solutions Page Update: 4 Core Pain Points)
+**Version**: 3.2.0 (Dashboard Category Tabs & Profile Editing)
 **Maintained by**: Development Team
 
 **🔄 Recent Updates** (2024-12-19):
+
+**Dashboard Category Tabs & Profile Editing** (v3.2.0):
+- ✅ **Category Tabs**: Dashboard hiển thị tabs theo category với số lượng profiles và màu nền theo category color
+  - Tab "All" hiển thị tất cả profiles
+  - Mỗi category có tab riêng với count và màu nền
+  - Click tab để filter profiles theo category
+- ✅ **Edit Profile Feature**: Thêm tính năng chỉnh sửa profile
+  - EditProfileModal component để edit title, URL, category, notes
+  - updateProfile() action cho regular users (không chỉ admin)
+  - Edit button trên ProfileCard (hiện khi hover)
+- ✅ **RSS Icon Always Visible**: Icon RSS luôn hiển thị trên ProfileCard
+  - Màu emerald-600 khi đã add vào feed
+  - Màu slate-400 khi chưa add vào feed
+  - Không cần hover để thấy icon
+- ✅ **Full Features for All Users**: Tất cả users có đầy đủ tính năng (categories, notes, unlimited profiles)
+  - Chỉ giới hạn: blur profiles từ thứ 6 trở đi khi trial expired
 
 **Landing Page & Solutions Page Update** (v3.1.0):
 - ✅ **Landing Page Features Update**: Thay thế 3 feature cards bằng 4 pain point & solution cards
