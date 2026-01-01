@@ -36,8 +36,14 @@ export function Sidebar({ userEmail, isPremium, isAdmin, currentProfileCount = 0
   // Load unread sales opportunities count
   useEffect(() => {
     const loadUnreadCount = async () => {
-      const count = await getUnreadSalesOpportunitiesCount();
-      setUnreadCount(count);
+      try {
+        const count = await getUnreadSalesOpportunitiesCount();
+        setUnreadCount(count);
+      } catch (error) {
+        // Silently fail - don't break the UI
+        console.error("[Sidebar] Error loading unread count:", error);
+        setUnreadCount(0);
+      }
     };
     
     loadUnreadCount();

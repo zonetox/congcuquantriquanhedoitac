@@ -38,7 +38,7 @@ export async function sendTelegramAlert(
     const payload: TelegramMessage = {
       chat_id: chatId,
       text: message,
-      parse_mode: "HTML",
+      parse_mode: "Markdown",
     };
 
     const response = await fetch(telegramApiUrl, {
@@ -111,18 +111,22 @@ export function formatSalesOpportunityMessage(
   const summary = aiSummary || "New post detected";
   const url = postUrl || "N/A";
   
-  return `🚨 <b>CẢNH BÁO CƠ HỘI</b>
+  // Format Markdown với link bài viết gốc
+  const postContentPreview = postContent.substring(0, 200) + (postContent.length > 200 ? "..." : "");
+  const linkText = url && url !== "N/A" ? `[Xem bài viết gốc](${url})` : "N/A";
+  
+  return `🚨 *CẢNH BÁO CƠ HỘI*
 
-📊 <b>Profile:</b> ${profileTitle}
-📝 <b>Tóm tắt:</b> ${summary}
+📊 *Profile:* ${profileTitle}
+📝 *Tóm tắt:* ${summary}
 
-💬 <b>Nội dung bài đăng:</b>
-${postContent.substring(0, 200)}${postContent.length > 200 ? "..." : ""}
+💬 *Nội dung bài đăng:*
+${postContentPreview}
 
-🔗 <b>Link bài viết:</b> ${url}
+🔗 *Link bài viết:* ${linkText}
 
-⏰ <b>Thời gian:</b> ${new Date().toLocaleString()}
+⏰ *Thời gian:* ${new Date().toLocaleString()}
 
-💡 <i>Đừng bỏ lỡ cơ hội này! Kiểm tra dashboard để xem gợi ý từ AI.</i>`;
+💡 _Đừng bỏ lỡ cơ hội này! Kiểm tra dashboard để xem gợi ý từ AI._`;
 }
 

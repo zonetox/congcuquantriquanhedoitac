@@ -100,7 +100,7 @@ export function NotificationSettings() {
       <div>
         <h2 className="text-xl font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
           <Bell className="w-5 h-5 text-emerald-600" />
-          Thông báo thông minh
+          Cấu hình thông báo
         </h2>
         <p className="text-sm text-slate-600 dark:text-slate-400">
           Nhận cảnh báo tức thì khi AI phát hiện cơ hội bán hàng từ các profile bạn theo dõi.
@@ -167,7 +167,7 @@ export function NotificationSettings() {
                     </button>
                   </div>
                   <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    Để lấy Chat ID, hãy nhắn tin cho @userinfobot trên Telegram
+                    Nhấn vào @userinfobot để lấy ID của bạn
                   </p>
                 </div>
 

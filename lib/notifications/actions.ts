@@ -80,11 +80,9 @@ export async function sendTestNotification(
     };
   }
 
-  const testMessage = `Chào bạn, đây là tin nhắn thử nghiệm từ Partner Center.
+  const testMessage = `Chúc mừng! Bạn đã kết nối thành công với Partner Center.
 
-Nếu bạn nhận được tin nhắn này, cấu hình Telegram của bạn đã hoạt động đúng! 🎉
-
-⏰ <b>Thời gian:</b> ${new Date().toLocaleString()}`;
+⏰ *Thời gian:* ${new Date().toLocaleString()}`;
 
   return await sendTelegramAlert(testMessage, chatId);
 }
@@ -209,44 +207,57 @@ export async function getNotificationSettings(): Promise<{
   }> | null;
   error: string | null;
 }> {
-  const supabase = await createClient();
+  try {
+    const supabase = await createClient();
 
-  // Get current user
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+    // Get current user
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-  if (userError || !user) {
+    if (userError || !user) {
+      return {
+        data: null,
+        error: "You need to sign in to view notification settings.",
+      };
+    }
+
+    const { data, error } = await supabase
+      .from("profiles_tracked")
+      .select("id, title, notify_telegram_chat_id, notify_on_sales_opportunity")
+      .eq("user_id", user.id)
+      .order("title", { ascending: true });
+
+    if (error) {
+      if (process.env.NODE_ENV === "development") {
+        console.error("[getNotificationSettings] Database error:", error);
+      }
+      return {
+        data: null,
+        error: error.message || "Failed to load notification settings.",
+      };
+    }
+
+    const settings = (data || []).map((profile) => ({
+      profile_id: profile.id,
+      profile_title: profile.title,
+      notify_telegram_chat_id: profile.notify_telegram_chat_id || null,
+      notify_on_sales_opportunity: profile.notify_on_sales_opportunity ?? true,
+    }));
+
+    return {
+      data: settings,
+      error: null,
+    };
+  } catch (error: any) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("[getNotificationSettings] Unexpected error:", error);
+    }
     return {
       data: null,
-      error: "You need to sign in to view notification settings.",
+      error: error.message || "An unexpected error occurred.",
     };
   }
-
-  const { data, error } = await supabase
-    .from("profiles_tracked")
-    .select("id, title, notify_telegram_chat_id, notify_on_sales_opportunity")
-    .eq("user_id", user.id)
-    .order("title", { ascending: true });
-
-  if (error) {
-    return {
-      data: null,
-      error: error.message,
-    };
-  }
-
-  const settings = (data || []).map((profile) => ({
-    profile_id: profile.id,
-    profile_title: profile.title,
-    notify_telegram_chat_id: profile.notify_telegram_chat_id,
-    notify_on_sales_opportunity: profile.notify_on_sales_opportunity ?? true,
-  }));
-
-  return {
-    data: settings,
-    error: null,
-  };
 }
 
