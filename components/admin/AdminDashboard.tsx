@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Shield, Users, Globe, Calendar, Search, Edit2, Trash2, X } from "lucide-react";
+import { Shield, Users, Globe, Calendar, Search, Edit2, Trash2, X, Key } from "lucide-react";
 import { getDomainFromUrl, getFaviconUrl } from "@/lib/utils/url";
 import Image from "next/image";
 import type { Profile } from "@/lib/profiles/types";
 import { UserManagement } from "@/components/admin/UserManagement";
+import { ApiKeyManagement } from "@/components/admin/ApiKeyManagement";
 import { updateProfile, deleteProfileAsAdmin } from "@/lib/admin/actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -15,7 +16,7 @@ interface AdminDashboardProps {
   error?: string | null;
 }
 
-type Tab = "profiles" | "users";
+type Tab = "profiles" | "users" | "api-keys";
 
 export function AdminDashboard({ profiles, error }: AdminDashboardProps) {
   const router = useRouter();
@@ -148,11 +149,24 @@ export function AdminDashboard({ profiles, error }: AdminDashboardProps) {
           >
             Users ({uniqueUserIds.length})
           </button>
+          <button
+            onClick={() => setActiveTab("api-keys")}
+            className={`px-4 py-2 font-medium text-sm transition-colors ${
+              activeTab === "api-keys"
+                ? "text-emerald-600 dark:text-emerald-400 border-b-2 border-emerald-600 dark:border-emerald-400"
+                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            }`}
+          >
+            <Key className="w-4 h-4 inline mr-1" />
+            API Keys
+          </button>
         </div>
       </div>
 
       {activeTab === "users" ? (
         <UserManagement />
+      ) : activeTab === "api-keys" ? (
+        <ApiKeyManagement />
       ) : (
         <>
       {/* Statistics */}

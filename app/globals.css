@@ -2,27 +2,66 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #F0F2F5;
+  --foreground: #2D3748;
+  --neu-base: #F0F2F5;
+  --neu-light: #FFFFFF;
+  --neu-dark: #D1D9E6;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #1a1a2e;
+    --foreground: #e2e8f0;
+    --neu-base: #1a1a2e;
+    --neu-light: #2d2d44;
+    --neu-dark: #0f0f1a;
   }
 }
 
 body {
   color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--neu-base);
+  font-family: 'Inter', 'Plus Jakarta Sans', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+  
+  /* Neumorphism utilities */
+  .neu-bg {
+    background: var(--neu-base);
+  }
+  
+  .neu-card {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(10px);
+  }
+  
+  .neu-button {
+    background: var(--neu-base);
+    transition: all 0.2s ease;
+  }
+  
+  .neu-button:active {
+    box-shadow: inset 4px 4px 8px #d1d9e6, inset -4px -4px 8px #ffffff;
+  }
+  
+  .neu-input {
+    background: var(--neu-base);
+    box-shadow: inset 8px 8px 16px #d1d9e6, inset -8px -8px 16px #ffffff;
+  }
+  
+  .neu-icon-box {
+    background: var(--neu-light);
+    box-shadow: inset 4px 4px 8px #d1d9e6, inset -4px -4px 8px #ffffff;
   }
 }
 

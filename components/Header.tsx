@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Target, Menu, X, LayoutDashboard, Settings, Shield } from "lucide-react";
+import { Target, Menu, X, LayoutDashboard, Settings, Shield, Rss } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface HeaderProps {
@@ -20,6 +20,7 @@ interface HeaderProps {
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
+  { name: "Feed", href: "/feed", icon: Rss },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 

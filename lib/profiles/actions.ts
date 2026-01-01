@@ -79,6 +79,42 @@ export async function addProfile(
   };
 }
 
+export async function toggleFeedStatus(profileId: string, isInFeed: boolean) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return {
+      error: "You need to sign in to update profile.",
+      success: false,
+    };
+  }
+
+  const { error } = await supabase
+    .from("profiles_tracked")
+    .update({ is_in_feed: isInFeed })
+    .eq("id", profileId)
+    .eq("user_id", user.id);
+
+  if (error) {
+    return {
+      error: error.message || "Unable to update profile.",
+      success: false,
+    };
+  }
+
+  revalidatePath("/");
+  revalidatePath("/feed");
+  return {
+    success: true,
+    error: null,
+  };
+}
+
 export async function deleteProfile(profileId: string) {
   const supabase = await createClient();
 

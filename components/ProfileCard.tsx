@@ -1,9 +1,12 @@
 "use client";
 
 import { getFaviconUrl, getDomainFromUrl } from "@/lib/utils/url";
-import { Trash2, Globe, Radio, Crown, ExternalLink, Lock } from "lucide-react";
+import { Trash2, Globe, Radio, Crown, ExternalLink, Lock, Rss } from "lucide-react";
 import { useState, memo } from "react";
 import Image from "next/image";
+import { toggleFeedStatus } from "@/lib/profiles/actions";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 import type { Profile } from "@/lib/profiles/types";
 
@@ -19,6 +22,8 @@ interface ProfileCardProps {
 
 export const ProfileCard = memo(function ProfileCard({ profile, onDelete, isDeleting = false, isPremium = false, isBlurred = false, categoryColor, animationDelay = 0 }: ProfileCardProps) {
   const [faviconError, setFaviconError] = useState(false);
+  const [isTogglingFeed, setIsTogglingFeed] = useState(false);
+  const router = useRouter();
 
   const handleCardClick = (e: React.MouseEvent) => {
     // Don't open link if clicking on delete button or AI update icon
@@ -32,6 +37,19 @@ export const ProfileCard = memo(function ProfileCard({ profile, onDelete, isDele
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card click when clicking delete
     onDelete(profile.id);
+  };
+
+  const handleToggleFeed = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click
+    setIsTogglingFeed(true);
+    const result = await toggleFeedStatus(profile.id, !profile.is_in_feed);
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success(profile.is_in_feed ? "Removed from feed" : "Added to feed");
+      router.refresh();
+    }
+    setIsTogglingFeed(false);
   };
 
   // Helper function để convert hex color thành rgba với opacity
@@ -57,15 +75,11 @@ export const ProfileCard = memo(function ProfileCard({ profile, onDelete, isDele
   return (
     <div
       onClick={isBlurred ? undefined : handleCardClick}
-      className={`group relative bg-gradient-to-br from-white to-slate-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 p-6 border-2 ${
+      className={`group relative neu-card rounded-neu-lg shadow-soft-out hover:shadow-soft-card transition-all duration-300 p-6 ${
         isBlurred 
           ? "cursor-not-allowed opacity-60"
           : "cursor-pointer"
-      } ${
-        isPremium
-          ? "border-yellow-400 dark:border-yellow-500 shadow-yellow-200/30 dark:shadow-yellow-900/20"
-          : "border-slate-200 dark:border-gray-700 hover:border-emerald-300 dark:hover:border-emerald-600"
-      } ${!isBlurred ? "transform hover:-translate-y-2 hover:scale-[1.02]" : ""} animate-fade-in-slide-up opacity-0`}
+      } ${!isBlurred ? "transform hover:-translate-y-1" : ""} animate-fade-in-slide-up opacity-0`}
       style={{
         ...(isBlurred ? {
           filter: "blur(4px) grayscale(1)",
@@ -74,32 +88,46 @@ export const ProfileCard = memo(function ProfileCard({ profile, onDelete, isDele
         animationDelay: `${animationDelay}ms`,
       }}
     >
-      {/* Premium Crown Icon */}
+      {/* Premium Crown Icon - Neumorphism Style */}
       {isPremium && (
-        <div className="absolute -top-3 -right-3 z-20 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full p-2 shadow-lg">
+        <div className="absolute -top-3 -right-3 z-20 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-full p-2 shadow-soft-button">
           <Crown className="w-5 h-5 text-white" />
         </div>
       )}
 
-      {/* Delete Button */}
-      <button
-        onClick={handleDelete}
-        disabled={isDeleting}
-        className="absolute top-3 right-3 p-2 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50 z-10 rounded-lg"
-        title="Delete profile"
-      >
-        <Trash2 className="w-5 h-5" />
-      </button>
+      {/* Action Buttons - Neumorphism Style */}
+      <div className="absolute top-3 right-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+        {/* Add to Feed Toggle */}
+        <button
+          onClick={handleToggleFeed}
+          disabled={isTogglingFeed || isBlurred}
+          className={`p-2 neu-icon-box rounded-xl transition-all disabled:opacity-50 active:shadow-soft-button-pressed ${
+            profile.is_in_feed
+              ? "text-emerald-600"
+              : "text-slate-500 hover:text-emerald-600"
+          }`}
+          title={profile.is_in_feed ? "Remove from feed" : "Add to feed"}
+        >
+          <Rss className={`w-5 h-5 ${isTogglingFeed ? "animate-spin" : ""}`} />
+        </button>
+        {/* Delete Button */}
+        <button
+          onClick={handleDelete}
+          disabled={isDeleting}
+          className="p-2 neu-icon-box rounded-xl text-slate-500 hover:text-red-500 transition-all disabled:opacity-50 active:shadow-soft-button-pressed"
+          title="Delete profile"
+        >
+          <Trash2 className="w-5 h-5" />
+        </button>
+      </div>
 
-      {/* Category Badge - Dynamic color từ category */}
+      {/* Category Badge - Neumorphism Style */}
       {profile.category && profile.category !== "General" && (
         <div className="absolute top-3 left-3 z-10">
           <span
-            className="px-3 py-1 text-xs font-semibold rounded-full border"
+            className="px-3 py-1.5 text-xs font-semibold rounded-full neu-icon-box shadow-soft-icon"
             style={{
-              backgroundColor: hexToRgba(finalCategoryColor, 0.15), // Màu nền nhạt (15% opacity)
               color: finalCategoryColor, // Màu chữ đậm
-              borderColor: hexToRgba(finalCategoryColor, 0.3), // Border với 30% opacity
             }}
           >
             {profile.category}
@@ -107,21 +135,17 @@ export const ProfileCard = memo(function ProfileCard({ profile, onDelete, isDele
         </div>
       )}
 
-      {/* AI Update Icon - Premium Feature Teaser */}
+      {/* AI Update Icon - Neumorphism Style */}
       <div className={`absolute ${profile.category && profile.category !== "General" ? "top-12 left-3" : "top-3 left-3"} z-10`}>
         <div
-          className={`p-2 rounded-full transition-all cursor-help ${
-            profile.has_new_update
-              ? "bg-blue-100 dark:bg-blue-900/30 shadow-sm"
-              : "bg-slate-100 dark:bg-gray-700/50"
-          }`}
+          className="p-2 neu-icon-box rounded-full transition-all cursor-help shadow-soft-icon"
           title="AI Update feature coming soon for Premium users"
         >
           <Radio
             className={`w-4 h-4 transition-colors ${
               profile.has_new_update
-                ? "text-blue-600 dark:text-blue-400"
-                : "text-slate-400 dark:text-slate-500"
+                ? "text-blue-500"
+                : "text-slate-400"
             }`}
           />
         </div>
@@ -129,58 +153,61 @@ export const ProfileCard = memo(function ProfileCard({ profile, onDelete, isDele
 
       {/* Business Card Content */}
       <div className="flex flex-col items-center text-center space-y-4 pt-2">
-        {/* Logo - Larger for Business Card feel */}
+        {/* Logo - Neumorphism Style */}
         <div className="flex justify-center mb-2">
           {faviconError ? (
-            <div className="w-20 h-20 rounded-xl border-2 border-slate-200 dark:border-gray-700 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center shadow-inner">
-              <Globe className="w-10 h-10 text-slate-400 dark:text-slate-500" />
+            <div className="w-20 h-20 rounded-2xl neu-icon-box flex items-center justify-center shadow-soft-icon">
+              <Globe className="w-10 h-10 text-slate-400" />
             </div>
           ) : (
             <div className="relative">
-              <Image
-                src={getFaviconUrl(profile.url)}
-                alt={getDomainFromUrl(profile.url)}
-                width={80}
-                height={80}
-                className="w-20 h-20 rounded-xl object-cover border-2 border-slate-200 dark:border-gray-700 shadow-md"
-                loading="lazy"
-                unoptimized // Google favicon API đã optimize sẵn
-                onError={() => {
-                  setFaviconError(true);
-                }}
-              />
+              <div className="w-20 h-20 rounded-2xl neu-icon-box shadow-soft-icon p-2">
+                <Image
+                  src={getFaviconUrl(profile.url)}
+                  alt={getDomainFromUrl(profile.url)}
+                  width={80}
+                  height={80}
+                  className="w-full h-full rounded-xl object-cover"
+                  loading="lazy"
+                  unoptimized
+                  onError={() => {
+                    setFaviconError(true);
+                  }}
+                />
+              </div>
               {/* External Link Indicator */}
-              <div className="absolute -bottom-1 -right-1 bg-emerald-600 text-white rounded-full p-1 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white rounded-full p-1 shadow-soft-button opacity-0 group-hover:opacity-100 transition-opacity">
                 <ExternalLink className="w-3 h-3" />
               </div>
             </div>
           )}
         </div>
 
-        {/* Title - Business Card Style */}
+        {/* Title - Neumorphism Style */}
         <div className="space-y-2 w-full">
-          <h3 className="text-xl font-bold text-slate-900 dark:text-white line-clamp-2 min-h-[3rem] leading-tight">
+          <h3 className="text-xl font-bold text-slate-800 line-clamp-2 min-h-[3rem] leading-tight">
             {profile.title}
           </h3>
 
           {/* Notes - Subtle below title */}
           {profile.notes && (
-            <p className="text-xs text-slate-500 dark:text-slate-400 text-center line-clamp-2 italic px-2 leading-relaxed">
+            <p className="text-xs text-slate-500 text-center line-clamp-2 italic px-2 leading-relaxed">
               {profile.notes}
             </p>
           )}
         </div>
 
-        {/* Domain - Professional styling */}
-        <div className="pt-2 border-t border-slate-200 dark:border-gray-700 w-full">
-          <p className="text-sm font-medium text-slate-600 dark:text-slate-400 truncate">
+        {/* Domain - Neumorphism Style */}
+        <div className="pt-3 w-full">
+          <div className="h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent"></div>
+          <p className="text-sm font-medium text-slate-600 truncate mt-3">
             {getDomainFromUrl(profile.url)}
           </p>
         </div>
       </div>
 
-      {/* Hover Effect Overlay */}
-      <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-emerald-500/0 to-blue-500/0 group-hover:from-emerald-500/5 group-hover:to-blue-500/5 transition-all duration-300 pointer-events-none" />
+      {/* Hover Effect Overlay - Neumorphism Style */}
+      <div className="absolute inset-0 rounded-neu-lg bg-gradient-to-br from-emerald-400/0 to-blue-400/0 group-hover:from-emerald-400/5 group-hover:to-blue-400/5 transition-all duration-300 pointer-events-none" />
     </div>
   );
 });

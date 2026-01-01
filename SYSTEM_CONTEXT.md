@@ -62,6 +62,7 @@ CREATE TABLE public.profiles_tracked (
 | `category` | TEXT | NULLABLE, DEFAULT 'General' | Phân loại: Có thể là default categories hoặc custom categories từ bảng `categories` |
 | `notes` | TEXT | NULLABLE | Ghi chú cá nhân (Premium feature) |
 | `has_new_update` | BOOLEAN | NULLABLE, DEFAULT false | Flag để đánh dấu có update mới (AI feature - coming soon) |
+| `is_in_feed` | BOOLEAN | NULLABLE, DEFAULT false | User có muốn đưa profile này vào Newsfeed không |
 | `created_at` | TIMESTAMP WITH TIME ZONE | NOT NULL, DEFAULT now() | Thời gian tạo record |
 
 **Indexes**:
@@ -233,6 +234,8 @@ Partner Relationship Management/
 │   │       └── route.ts
 │   ├── login/                    # Login/Register page
 │   │   └── page.tsx
+│   ├── solutions/                # ✅ Solutions page (v3.1)
+│   │   └── page.tsx              # Deep-dive solutions page for prospects
 │   ├── settings/                 # Settings page
 │   │   └── page.tsx
 │   ├── globals.css               # Global styles
@@ -546,9 +549,34 @@ const result = await addProfile({
 
 **Features**:
 - Hero section: "Stop Drowning in Tabs. Build Stronger Relationships."
-- 3 Feature cards: Focus Mode, One-Click Access, Strategic Notes
+- **4 Pain Point & Solution Cards** (v3.1):
+  1. **Lost in Newsfeed**: Facebook/LinkedIn algorithms hide posts → Partner Center scans profiles directly
+  2. **Time Waste**: 2 hours daily on 5 platforms → Just 5 minutes on focused Newsfeed
+  3. **High Cost**: $200+/month for bulky systems → $5-$10/month lean tool
+  4. **Missed Opportunities**: Don't know what to say or miss buying signals → AI Ice Breaker + AI Sales Signals
 - Social Proof section: "Trusted by Sales Teams at Top Companies"
 - CTA button: "Get Started for Free" → `/login`
+
+**4 Core Values** (v3.1):
+1. **100% Visibility**: Direct profile scanning bypasses algorithm limitations
+2. **Time Efficiency**: Reduce daily monitoring from 120-180 minutes to 5-10 minutes
+3. **Cost Optimization**: Affordable pricing ($5-$10/month) vs. expensive alternatives ($200+/month)
+4. **AI-Powered Engagement**: AI suggests responses and detects sales signals automatically
+
+### 1.5. Solutions Page (`app/solutions/page.tsx`) ✅ MỚI (v3.1)
+
+**Mục đích**: Trang giải pháp chuyên sâu để gửi cho khách hàng mục tiêu (qua Zalo/Messenger)
+
+**Features**:
+- **Hero Section**: "Partner Center: Your AI Assistant to Care for the Right People, Close Deals at the Right Time."
+- **Why You Need Us Section**: Chi tiết về cách thuật toán mạng xã hội đang làm hại mối quan hệ kinh doanh
+- **Comparison Table**: So sánh Traditional Method vs. Partner Center (AI)
+  - Post Visibility Rate: < 20% vs. 100%
+  - Daily Time Investment: 120-180 min vs. 5-10 min
+  - Monthly Cost: $200+ vs. $5-$10
+  - Conversation Response: Manual vs. AI-suggested templates
+- **CTA Section**: "Start Your 15-Day Free Trial" button → `/login`
+- **Responsive Design**: Tối ưu cho mobile để gửi qua Zalo/Messenger
 
 ### 2. Dashboard (`components/DashboardContent.tsx`)
 
@@ -1089,10 +1117,30 @@ Trước khi commit code, đảm bảo:
 ---
 
 **📅 Last Updated**: 2024-12-19
-**Version**: 2.5.0 (UX Enhancements: Dynamic Category Badges, Card Animations, Quick Add, Empty States)
+**Version**: 3.1.0 (Landing Page & Solutions Page Update: 4 Core Pain Points)
 **Maintained by**: Development Team
 
 **🔄 Recent Updates** (2024-12-19):
+
+**Landing Page & Solutions Page Update** (v3.1.0):
+- ✅ **Landing Page Features Update**: Thay thế 3 feature cards bằng 4 pain point & solution cards
+  - Lost in Newsfeed: Algorithm hiding posts → Direct profile scanning
+  - Time Waste: 2 hours daily → 5 minutes focused Newsfeed
+  - High Cost: $200+/month → $5-$10/month lean tool
+  - Missed Opportunities: Manual responses → AI Ice Breaker + AI Sales Signals
+- ✅ **Solutions Page**: Tạo trang `/solutions` chuyên sâu cho prospects
+  - Hero section với value proposition rõ ràng
+  - "Why You Need Us" section giải thích vấn đề thuật toán
+  - Comparison table: Traditional vs. AI-powered approach
+  - CTA: "Start Your 15-Day Free Trial" → `/login`
+  - Responsive design tối ưu cho mobile (Zalo/Messenger)
+- ✅ **4 Core Values**: Documented trong SYSTEM_CONTEXT.md
+  1. 100% Visibility (bypass algorithm)
+  2. Time Efficiency (120-180 min → 5-10 min)
+  3. Cost Optimization ($200+ → $5-$10)
+  4. AI-Powered Engagement (auto responses & signals)
+
+**UX Enhancements** (v2.5.0):
 
 **Dynamic Categories + Advanced Admin Features** (v2.4.0):
 - ✅ **Dynamic Categories**: Thay thế hardcoded categories bằng bảng `categories` trong database

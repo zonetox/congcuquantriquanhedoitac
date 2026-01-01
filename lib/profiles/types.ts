@@ -8,6 +8,7 @@ export interface Profile {
   category?: string | null;
   notes?: string | null;
   has_new_update?: boolean | null;
+  is_in_feed?: boolean | null; // User có muốn đưa profile này vào Newsfeed không
   created_at: string;
 }
 

@@ -1,7 +1,5 @@
 "use client";
 
-"use client";
-
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Target, LayoutDashboard, Settings, Crown, LogOut, Shield, Plus } from "lucide-react";
@@ -24,6 +22,7 @@ interface SidebarProps {
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
+  { name: "Feed", href: "/feed", icon: Rss },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
