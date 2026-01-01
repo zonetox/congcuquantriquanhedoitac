@@ -20,7 +20,7 @@ export interface ProfilePost {
  * Lấy tất cả posts từ profiles được bật is_in_feed = true
  */
 export async function getFeedPosts(): Promise<{
-  data: ProfilePost[] | null;
+  data: Array<ProfilePost & { profile_title: string; profile_url: string }> | null;
   error: string | null;
 }> {
   const supabase = await createClient();

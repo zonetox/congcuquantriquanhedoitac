@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import Image from "next/image";
 import { getFaviconUrl, getDomainFromUrl } from "@/lib/utils/url";
 import { useRouter } from "next/navigation";
-import type { FeedPost } from "@/lib/feed/types";
+import type { ProfilePost } from "@/lib/feed/actions";
 
 interface FeedContentProps {
   isPremium?: boolean;
@@ -17,7 +17,7 @@ interface FeedContentProps {
 
 export function FeedContent({ isPremium = false, hasValidPremium = false, trialExpired = false }: FeedContentProps) {
   const router = useRouter();
-  const [posts, setPosts] = useState<FeedPost[]>([]);
+  const [posts, setPosts] = useState<Array<ProfilePost & { profile_title: string; profile_url: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -186,9 +186,11 @@ export function FeedContent({ isPremium = false, hasValidPremium = false, trialE
                         {getDomainFromUrl(post.profile_url || "")}
                       </p>
                     </div>
-                    <time className="text-xs text-slate-400 whitespace-nowrap ml-4">
-                      {formatDate(post.published_at)}
-                    </time>
+                    {post.published_at && (
+                      <time className="text-xs text-slate-400 whitespace-nowrap ml-4">
+                        {formatDate(post.published_at)}
+                      </time>
+                    )}
                   </div>
                 </div>
               </div>
