@@ -225,14 +225,6 @@ export async function getValidApiKey(provider?: string): Promise<{
   // Sort by usage and get the first one
   const sortedKeys = validKeys.sort((a: any, b: any) => a.current_usage - b.current_usage);
   const data = [sortedKeys[0]];
-  const error = null;
-
-  if (error) {
-    return {
-      data: null,
-      error: error.message,
-    };
-  }
 
   if (!data || data.length === 0) {
     return {
