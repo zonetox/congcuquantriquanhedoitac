@@ -184,7 +184,7 @@ export async function deleteApiKey(keyId: string): Promise<{
 
 /**
  * Lấy một API key hợp lệ để sử dụng (xoay vòng)
- * Tìm key có is_active = true và current_usage < quota_limit
+ * Tìm key có status = 'active' và current_usage < quota_limit
  */
 export async function getValidApiKey(provider?: string): Promise<{
   data: ApiKey | null;
