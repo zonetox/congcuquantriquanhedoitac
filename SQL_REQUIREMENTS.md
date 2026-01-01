@@ -188,3 +188,60 @@ Nếu bạn đã có data trong `user_metadata`, script migration ở bước 9 
 
 **📅 Last Updated**: 2024-12-19
 **Version**: 2.0.0 (Updated to use user_profiles table)
+
+---
+
+## 3. Bổ sung cột cho profiles_tracked (v3.2) ⚠️ CẦN CHẠY
+
+### Mô tả
+Bổ sung các cột còn thiếu trong bảng `profiles_tracked` để hỗ trợ đầy đủ tính năng v3.2:
+- `category`: Phân loại profile
+- `notes`: Ghi chú cá nhân
+- `rss_url`: URL RSS feed
+- `has_new_update`: Flag cho AI updates
+- `is_in_feed`: Flag cho Newsfeed
+- `updated_at`: Timestamp tự động cập nhật
+
+### Lệnh SQL
+
+Xem file `SQL_UPDATE_V3.2.md` để có đầy đủ các lệnh SQL cần chạy.
+
+**Tóm tắt nhanh**:
+```sql
+-- Thêm các cột còn thiếu
+ALTER TABLE public.profiles_tracked
+ADD COLUMN IF NOT EXISTS category TEXT NULL DEFAULT 'General',
+ADD COLUMN IF NOT EXISTS notes TEXT NULL,
+ADD COLUMN IF NOT EXISTS rss_url TEXT NULL,
+ADD COLUMN IF NOT EXISTS has_new_update BOOLEAN NULL DEFAULT false,
+ADD COLUMN IF NOT EXISTS is_in_feed BOOLEAN NULL DEFAULT false,
+ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now());
+
+-- Tạo trigger tự động cập nhật updated_at
+CREATE OR REPLACE FUNCTION update_profiles_tracked_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = timezone('utc'::text, now());
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS update_profiles_tracked_updated_at ON public.profiles_tracked;
+CREATE TRIGGER update_profiles_tracked_updated_at
+  BEFORE UPDATE ON public.profiles_tracked
+  FOR EACH ROW
+  EXECUTE FUNCTION update_profiles_tracked_updated_at();
+
+-- Đảm bảo RLS Policy UPDATE tồn tại
+DROP POLICY IF EXISTS "Users can update their own profiles" ON public.profiles_tracked;
+CREATE POLICY "Users can update their own profiles"
+  ON public.profiles_tracked
+  FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+```
+
+### ⚠️ QUAN TRỌNG
+- Chạy các lệnh này trong Supabase SQL Editor
+- Kiểm tra từng lệnh một
+- Nếu cột đã tồn tại, lệnh `ADD COLUMN IF NOT EXISTS` sẽ không làm gì (an toàn)
