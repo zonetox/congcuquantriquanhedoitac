@@ -5,6 +5,7 @@ import { Plus } from "lucide-react";
 import { ProfileGrid } from "@/components/ProfileGrid";
 import { AddProfileModal } from "@/components/AddProfileModal";
 import { EditProfileModal } from "@/components/EditProfileModal";
+import { ProfileDetailsModal } from "@/components/ProfileDetailsModal";
 import { UpgradeButton } from "@/components/UpgradeButton";
 import type { Profile } from "@/lib/profiles/types";
 import type { Category } from "@/lib/categories/actions";
@@ -21,6 +22,7 @@ interface DashboardContentProps {
 export function DashboardContent({ profiles, isPremium, hasValidPremium = false, trialExpired = false, currentProfileCount, categories = [] }: DashboardContentProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
+  const [detailsProfile, setDetailsProfile] = useState<Profile | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null); // null = All
 
   // Default categories với màu
@@ -146,6 +148,7 @@ export function DashboardContent({ profiles, isPremium, hasValidPremium = false,
         trialExpired={trialExpired}
         categories={categories}
         onEdit={setEditingProfile}
+        onDetails={setDetailsProfile}
       />
 
       {/* Floating Add Button - Neumorphism Style */}
@@ -171,6 +174,15 @@ export function DashboardContent({ profiles, isPremium, hasValidPremium = false,
           isOpen={!!editingProfile}
           onClose={() => setEditingProfile(null)}
           profile={editingProfile}
+        />
+      )}
+
+      {/* Profile Details Modal (CRM) */}
+      {detailsProfile && (
+        <ProfileDetailsModal
+          isOpen={!!detailsProfile}
+          onClose={() => setDetailsProfile(null)}
+          profile={detailsProfile}
         />
       )}
     </main>

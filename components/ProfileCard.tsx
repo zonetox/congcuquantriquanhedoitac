@@ -1,10 +1,11 @@
 "use client";
 
 import { getFaviconUrl, getDomainFromUrl } from "@/lib/utils/url";
-import { Trash2, Globe, Radio, Crown, ExternalLink, Lock, Rss, Edit2 } from "lucide-react";
+import { Trash2, Globe, Radio, Crown, ExternalLink, Lock, Rss, Edit2, Check } from "lucide-react";
 import { useState, memo } from "react";
 import Image from "next/image";
 import { toggleFeedStatus } from "@/lib/profiles/actions";
+import { updateInteraction } from "@/lib/crm/actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -14,6 +15,7 @@ interface ProfileCardProps {
   profile: Profile;
   onDelete: (profileId: string) => void;
   onEdit?: (profile: Profile) => void; // Callback để mở EditModal
+  onDetails?: (profile: Profile) => void; // Callback để mở ProfileDetailsModal
   isDeleting?: boolean;
   isPremium?: boolean;
   isBlurred?: boolean; // Profile bị blur (trial expired, từ thứ 6 trở đi)
@@ -21,18 +23,82 @@ interface ProfileCardProps {
   animationDelay?: number; // Delay cho animation (ms)
 }
 
-export const ProfileCard = memo(function ProfileCard({ profile, onDelete, onEdit, isDeleting = false, isPremium = false, isBlurred = false, categoryColor, animationDelay = 0 }: ProfileCardProps) {
+export const ProfileCard = memo(function ProfileCard({ profile, onDelete, onEdit, onDetails, isDeleting = false, isPremium = false, isBlurred = false, categoryColor, animationDelay = 0 }: ProfileCardProps) {
   const [faviconError, setFaviconError] = useState(false);
   const [isTogglingFeed, setIsTogglingFeed] = useState(false);
+  const [isUpdatingInteraction, setIsUpdatingInteraction] = useState(false);
   const router = useRouter();
 
+  // Calculate days since last interaction
+  const getDaysSinceInteraction = (): number | null => {
+    if (!profile.last_interacted_at) return null;
+    const lastInteraction = new Date(profile.last_interacted_at);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - lastInteraction.getTime());
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  // Get health score color based on days since interaction
+  const getHealthScoreColor = (): { bg: string; text: string; border: string } => {
+    const days = getDaysSinceInteraction();
+    if (days === null) {
+      // No interaction yet - yellow
+      return {
+        bg: "bg-yellow-500",
+        text: "text-yellow-700",
+        border: "border-yellow-500",
+      };
+    }
+    if (days < 7) {
+      // Green: < 7 days
+      return {
+        bg: "bg-emerald-500",
+        text: "text-emerald-700",
+        border: "border-emerald-500",
+      };
+    } else if (days >= 7 && days <= 14) {
+      // Yellow: 7-14 days
+      return {
+        bg: "bg-yellow-500",
+        text: "text-yellow-700",
+        border: "border-yellow-500",
+      };
+    } else {
+      // Red: > 14 days
+      return {
+        bg: "bg-red-500",
+        text: "text-red-700",
+        border: "border-red-500",
+      };
+    }
+  };
+
   const handleCardClick = (e: React.MouseEvent) => {
-    // Don't open link if clicking on delete button or AI update icon
+    // Don't open link if clicking on buttons
     if ((e.target as HTMLElement).closest('button')) {
       return;
     }
-    // Open link in new tab using window.open
-    window.open(profile.url, '_blank', 'noopener,noreferrer');
+    // Open ProfileDetailsModal instead of URL
+    if (onDetails) {
+      onDetails(profile);
+    } else {
+      // Fallback: open URL if no onDetails callback
+      window.open(profile.url, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  const handleQuickInteraction = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsUpdatingInteraction(true);
+    const result = await updateInteraction(profile.id);
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success("Interaction updated!");
+      router.refresh();
+    }
+    setIsUpdatingInteraction(false);
   };
 
   const handleDelete = (e: React.MouseEvent) => {
@@ -73,6 +139,9 @@ export const ProfileCard = memo(function ProfileCard({ profile, onDelete, onEdit
   // Lấy màu category (từ prop hoặc default)
   const finalCategoryColor = categoryColor || defaultCategoryColors[profile.category || "General"] || "#64748b";
 
+  const healthColor = getHealthScoreColor();
+  const daysSinceInteraction = getDaysSinceInteraction();
+
   return (
     <div
       onClick={isBlurred ? undefined : handleCardClick}
@@ -89,6 +158,25 @@ export const ProfileCard = memo(function ProfileCard({ profile, onDelete, onEdit
         animationDelay: `${animationDelay}ms`,
       }}
     >
+      {/* Health Score Bar - Top of card */}
+      <div className="absolute top-0 left-0 right-0 h-1.5 rounded-t-neu-lg overflow-hidden">
+        <div 
+          className={`h-full ${healthColor.bg} transition-all duration-300`}
+          style={{ width: '100%' }}
+        />
+      </div>
+
+      {/* Quick Interaction Button - Neumorphism Style */}
+      <div className="absolute bottom-3 right-3 z-10">
+        <button
+          onClick={handleQuickInteraction}
+          disabled={isUpdatingInteraction || isBlurred}
+          className="p-2 neu-icon-box rounded-xl text-pastel-mint hover:text-emerald-600 transition-all disabled:opacity-50 active:shadow-soft-button-pressed"
+          title="Mark as interacted"
+        >
+          <Check className={`w-5 h-5 ${isUpdatingInteraction ? "animate-spin" : ""}`} />
+        </button>
+      </div>
       {/* Premium Crown Icon - Neumorphism Style */}
       {isPremium && (
         <div className="absolute -top-3 -right-3 z-20 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-full p-2 shadow-soft-button">

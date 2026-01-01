@@ -65,6 +65,8 @@ CREATE TABLE public.profiles_tracked (
 | `notes` | TEXT | NULLABLE | Ghi chú cá nhân (Premium feature) |
 | `has_new_update` | BOOLEAN | NULLABLE, DEFAULT false | Flag để đánh dấu có update mới (AI feature - coming soon) |
 | `is_in_feed` | BOOLEAN | NULLABLE, DEFAULT false | User có muốn đưa profile này vào Newsfeed không (v3.2) |
+| `last_interacted_at` | TIMESTAMP WITH TIME ZONE | NULLABLE, DEFAULT now() | Ngày tương tác cuối cùng (CRM Module v1.0) |
+| `relationship_score` | INTEGER | NULLABLE, DEFAULT 100 | Điểm sức khỏe mối quan hệ (0-100) (CRM Module v1.0) |
 | `created_at` | TIMESTAMP WITH TIME ZONE | NOT NULL, DEFAULT now() | Thời gian tạo record |
 | `updated_at` | TIMESTAMP WITH TIME ZONE | NULLABLE, DEFAULT now() | Thời gian cập nhật record (tự động cập nhật bởi trigger) (v3.2) |
 
@@ -75,6 +77,9 @@ CREATE TABLE public.profiles_tracked (
 - `idx_profiles_tracked_category` (BTREE) trên `category` WHERE `category IS NOT NULL` - Tối ưu filter theo category (v3.2)
 - `idx_profiles_tracked_is_in_feed` (BTREE) trên `(user_id, is_in_feed)` WHERE `is_in_feed = true` - Tối ưu Newsfeed queries (v3.2)
 - `idx_profiles_tracked_updated_at` (BTREE) trên `updated_at DESC` - Tối ưu sorting theo thời gian update (v3.2)
+- `idx_profiles_tracked_last_interacted_at` (BTREE) trên `last_interacted_at DESC NULLS LAST` - Tối ưu CRM queries (CRM v1.0)
+- `idx_profiles_tracked_relationship_score` (BTREE) trên `relationship_score DESC NULLS LAST` - Tối ưu sort theo điểm sức khỏe (CRM v1.0)
+- `idx_profiles_tracked_user_interaction` (BTREE) trên `(user_id, last_interacted_at DESC NULLS LAST)` - Tối ưu query theo user và ngày tương tác (CRM v1.0)
 
 **Row Level Security (RLS)**:
 - ✅ RLS đã được bật
