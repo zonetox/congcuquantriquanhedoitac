@@ -5,8 +5,9 @@ import { usePathname } from "next/navigation";
 import { Target, LayoutDashboard, Settings, Crown, LogOut, Shield, Plus, Rss } from "lucide-react";
 import { signOut } from "@/lib/auth/actions";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AddProfileModal } from "@/components/AddProfileModal";
+import { getUnreadSalesOpportunitiesCount } from "@/lib/notifications/queries";
 
 interface SidebarProps {
   userEmail?: string;
@@ -29,7 +30,21 @@ const navigation = [
 export function Sidebar({ userEmail, isPremium, isAdmin, currentProfileCount = 0, trialStatus }: SidebarProps) {
   const pathname = usePathname();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const MAX_FREE_PROFILES = 5;
+
+  // Load unread sales opportunities count
+  useEffect(() => {
+    const loadUnreadCount = async () => {
+      const count = await getUnreadSalesOpportunitiesCount();
+      setUnreadCount(count);
+    };
+    
+    loadUnreadCount();
+    // Refresh every 30 seconds
+    const interval = setInterval(loadUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 bg-white dark:bg-gray-800 border-r border-slate-200 dark:border-gray-700">
@@ -54,13 +69,14 @@ export function Sidebar({ userEmail, isPremium, isAdmin, currentProfileCount = 0
       <nav className="flex-1 px-4 py-6 space-y-2">
         {navigation.map((item) => {
           const isActive = pathname === item.href;
+          const hasNotification = item.name === "Feed" && unreadCount > 0;
           return (
             <div key={item.name}>
               <div className="flex items-center gap-2">
                 <Link
                   href={item.href}
                   className={cn(
-                    "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors flex-1",
+                    "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors flex-1 relative",
                     isActive
                       ? "bg-gradient-to-r from-emerald-600 to-blue-600 text-white shadow-lg"
                       : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-gray-700"
@@ -68,6 +84,13 @@ export function Sidebar({ userEmail, isPremium, isAdmin, currentProfileCount = 0
                 >
                   <item.icon className="w-5 h-5" />
                   <span className="font-medium">{item.name}</span>
+                  {/* Notification Badge - Pulse Effect */}
+                  {hasNotification && (
+                    <span className="absolute right-2 top-2 flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                    </span>
+                  )}
                 </Link>
                 {/* Quick Add Button - chỉ hiển thị ở Dashboard */}
                 {item.name === "Dashboard" && (

@@ -52,6 +52,7 @@ async function getUserProfile(): Promise<UserProfile | null> {
       role: "user",
       is_premium: false,
       trial_started_at: new Date().toISOString(),
+      locale: "en",
       updated_at: new Date().toISOString(),
     };
   }
@@ -63,6 +64,7 @@ async function getUserProfile(): Promise<UserProfile | null> {
       role: "user",
       is_premium: false,
       trial_started_at: new Date().toISOString(),
+      locale: "en",
       updated_at: new Date().toISOString(),
     };
   }
@@ -72,6 +74,7 @@ async function getUserProfile(): Promise<UserProfile | null> {
     return {
       ...profile,
       trial_started_at: new Date().toISOString(),
+      locale: (profile as any).locale || "en",
     } as UserProfile;
   }
 

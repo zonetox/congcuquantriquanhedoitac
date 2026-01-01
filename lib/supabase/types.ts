@@ -19,7 +19,13 @@ export interface Database {
           category: string | null;
           notes: string | null;
           has_new_update: boolean | null;
+          is_in_feed: boolean | null;
+          last_interacted_at: string | null;
+          relationship_score: number | null;
+          notify_telegram_chat_id: string | null;
+          notify_on_sales_opportunity: boolean | null;
           created_at: string;
+          updated_at: string | null;
         };
         Insert: {
           id?: string;
@@ -30,7 +36,13 @@ export interface Database {
           category?: string;
           notes?: string | null;
           has_new_update?: boolean;
+          is_in_feed?: boolean;
+          last_interacted_at?: string | null;
+          relationship_score?: number;
+          notify_telegram_chat_id?: string | null;
+          notify_on_sales_opportunity?: boolean;
           created_at?: string;
+          updated_at?: string;
         };
         Update: {
           id?: string;
@@ -41,7 +53,13 @@ export interface Database {
           category?: string;
           notes?: string | null;
           has_new_update?: boolean;
+          is_in_feed?: boolean;
+          last_interacted_at?: string | null;
+          relationship_score?: number;
+          notify_telegram_chat_id?: string | null;
+          notify_on_sales_opportunity?: boolean;
           created_at?: string;
+          updated_at?: string;
         };
       };
       user_profiles: {

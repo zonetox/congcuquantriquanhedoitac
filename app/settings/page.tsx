@@ -5,6 +5,7 @@ import { Header } from "@/components/Header";
 import { getUserMembership } from "@/lib/membership";
 import { UpgradeButton } from "@/components/UpgradeButton";
 import { ManageCategories } from "@/components/ManageCategories";
+import { NotificationSettings } from "@/components/NotificationSettings";
 
 export default async function SettingsPage() {
   const user = await getUser();
@@ -101,8 +102,13 @@ export default async function SettingsPage() {
             </div>
 
             {/* Categories Section */}
-            <div>
+            <div className="border-b border-slate-200 dark:border-gray-700 pb-6">
               <ManageCategories isPremium={userIsPremium} />
+            </div>
+
+            {/* Notification Settings Section */}
+            <div>
+              <NotificationSettings />
             </div>
           </div>
         </div>

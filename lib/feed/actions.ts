@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { analyzePostWithAI } from "@/lib/ai/analyzer";
+import { checkAndNotify } from "@/lib/notifications/actions";
 
 export interface ProfilePost {
   id: string;
@@ -14,6 +15,7 @@ export interface ProfilePost {
   published_at: string | null;
   ai_analysis: any | null;
   ai_suggestions: any | null;
+  notification_sent: boolean | null;
   created_at: string;
 }
 
@@ -204,6 +206,30 @@ export async function syncFeed(): Promise<{
         errors.push(error.message);
       } else {
         postsCreated++;
+      }
+    }
+  }
+
+  // Sau khi sync xong, kiểm tra và gửi thông báo cho Sales Opportunities
+  if (postsCreated > 0) {
+    try {
+      const notifyResult = await checkAndNotify();
+      if (notifyResult.notificationsSent > 0) {
+        if (process.env.NODE_ENV === "development") {
+          console.log(
+            `[syncFeed] Sent ${notifyResult.notificationsSent} notifications`
+          );
+        }
+      }
+      if (notifyResult.errors.length > 0) {
+        if (process.env.NODE_ENV === "development") {
+          console.warn("[syncFeed] Notification errors:", notifyResult.errors);
+        }
+      }
+    } catch (error) {
+      // Không block sync process nếu notification fail
+      if (process.env.NODE_ENV === "development") {
+        console.error("[syncFeed] Error checking notifications:", error);
       }
     }
   }

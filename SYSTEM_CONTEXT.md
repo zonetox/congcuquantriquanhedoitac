@@ -67,6 +67,8 @@ CREATE TABLE public.profiles_tracked (
 | `is_in_feed` | BOOLEAN | NULLABLE, DEFAULT false | User có muốn đưa profile này vào Newsfeed không (v3.2) |
 | `last_interacted_at` | TIMESTAMP WITH TIME ZONE | NULLABLE, DEFAULT now() | Ngày tương tác cuối cùng (CRM Module v1.0) |
 | `relationship_score` | INTEGER | NULLABLE, DEFAULT 100 | Điểm sức khỏe mối quan hệ (0-100) (CRM Module v1.0) |
+| `notify_telegram_chat_id` | TEXT | NULLABLE | Telegram Chat ID để nhận thông báo (Module 3 - Smart Trigger) |
+| `notify_on_sales_opportunity` | BOOLEAN | NULLABLE, DEFAULT true | Có nhận cảnh báo khi phát hiện Sales Opportunity không (Module 3) |
 | `created_at` | TIMESTAMP WITH TIME ZONE | NOT NULL, DEFAULT now() | Thời gian tạo record |
 | `updated_at` | TIMESTAMP WITH TIME ZONE | NULLABLE, DEFAULT now() | Thời gian cập nhật record (tự động cập nhật bởi trigger) (v3.2) |
 
@@ -295,6 +297,7 @@ CREATE TABLE public.profile_posts (
 | `published_at` | TIMESTAMP WITH TIME ZONE | NULLABLE | Thời gian đăng bài (từ source) |
 | `ai_analysis` | JSONB | NULLABLE | Phân tích AI (tóm tắt, Sales Signals) - ✅ Module 2B |
 | `ai_suggestions` | JSONB | NULLABLE | Gợi ý AI (Ice Breakers) - ✅ Module 2B |
+| `notification_sent` | BOOLEAN | NULLABLE, DEFAULT false | Đã gửi thông báo cho Sales Opportunity chưa (Module 3) |
 | `created_at` | TIMESTAMP WITH TIME ZONE | DEFAULT now() | Thời gian tạo record |
 
 **Indexes** (Newsfeed v2A):
@@ -330,6 +333,7 @@ CREATE TABLE public.profile_posts (
 - Chỉ hiển thị posts từ profiles có `is_in_feed = true`
 - AI analysis được tự động chạy khi sync feed (Module 2B)
 - `published_at` có thể NULL nếu không lấy được từ source
+- `notification_sent` được dùng để tránh gửi thông báo trùng (Module 3)
 
 ### 6. Bảng `public.admin_logs` ✅ Admin Activity Logging
 
@@ -1253,11 +1257,14 @@ LEMON_SQUEEZY_WEBHOOK_SECRET=your-webhook-secret
 
 # OpenAI (Module 2B - AI Intelligence)
 OPENAI_API_KEY=sk-your-openai-api-key
+
+# Telegram Bot (Module 3 - Smart Trigger)
+TELEGRAM_BOT_TOKEN=your-telegram-bot-token
 ```
 
 **⚠️ QUAN TRỌNG**: 
 - `NEXT_PUBLIC_*` variables có thể truy cập từ client-side
-- `SUPABASE_SERVICE_ROLE_KEY`, `LEMON_SQUEEZY_WEBHOOK_SECRET`, và `OPENAI_API_KEY` chỉ dùng server-side
+- `SUPABASE_SERVICE_ROLE_KEY`, `LEMON_SQUEEZY_WEBHOOK_SECRET`, `OPENAI_API_KEY`, và `TELEGRAM_BOT_TOKEN` chỉ dùng server-side
 
 ---
 
