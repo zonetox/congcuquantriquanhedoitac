@@ -15,7 +15,7 @@ export async function getAllUsers(): Promise<{
     role: string;
     is_premium: boolean;
     trial_started_at: string | null;
-    created_at: string;
+    updated_at: string;
   }> | null;
   error: string | null;
 }> {
@@ -32,7 +32,7 @@ export async function getAllUsers(): Promise<{
   const { data: profile, error: profileError } = await supabase
     .from("user_profiles")
     .select("*")
-    .order("created_at", { ascending: false });
+    .order("updated_at", { ascending: false });
 
   if (profileError) {
     return {

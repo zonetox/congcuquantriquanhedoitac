@@ -12,7 +12,7 @@ interface UserData {
   role: string;
   is_premium: boolean;
   trial_started_at: string | null;
-  created_at: string;
+  updated_at: string;
 }
 
 export function UserManagement() {
