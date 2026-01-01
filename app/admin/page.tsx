@@ -6,6 +6,9 @@ import { AdminDashboard } from "@/components/admin/AdminDashboard";
 import { Sidebar } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
 
+// Force dynamic rendering to avoid next-intl config issues during build
+export const dynamic = 'force-dynamic';
+
 export default async function AdminPage() {
   // Kiểm tra authentication
   const user = await getUser();

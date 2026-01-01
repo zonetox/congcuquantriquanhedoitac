@@ -7,6 +7,9 @@ import { Header } from "@/components/Header";
 import { DashboardContent } from "@/components/DashboardContent";
 import { getUserMembership } from "@/lib/membership";
 
+// Force dynamic rendering to avoid next-intl config issues during build
+export const dynamic = 'force-dynamic';
+
 export default async function Home() {
   const user = await getUser();
 

@@ -7,6 +7,9 @@ import { UpgradeButton } from "@/components/UpgradeButton";
 import { ManageCategories } from "@/components/ManageCategories";
 import { NotificationSettings } from "@/components/NotificationSettings";
 
+// Force dynamic rendering to avoid next-intl config issues during build
+export const dynamic = 'force-dynamic';
+
 export default async function SettingsPage() {
   const user = await getUser();
 

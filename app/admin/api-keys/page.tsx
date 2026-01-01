@@ -5,6 +5,9 @@ import { Sidebar } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
 import { ApiKeyManagement } from "@/components/admin/ApiKeyManagement";
 
+// Force dynamic rendering to avoid next-intl config issues during build
+export const dynamic = 'force-dynamic';
+
 export default async function ApiKeysPage() {
   // Kiểm tra authentication
   const user = await getUser();

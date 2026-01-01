@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Toaster } from "sonner";
-import { NextIntlClientProvider } from "next-intl";
+import { IntlProvider } from "@/components/IntlProvider";
 import { cookies } from "next/headers";
 import { locales, type Locale } from "@/i18n/config";
 import { getUserLocale } from "@/lib/user/actions";
@@ -64,9 +64,9 @@ export default async function RootLayout({
   return (
     <html lang={validLocale}>
       <body>
-        <NextIntlClientProvider messages={messages} locale={validLocale}>
+        <IntlProvider messages={messages} locale={validLocale}>
           {children}
-        </NextIntlClientProvider>
+        </IntlProvider>
         <Toaster position="top-right" richColors />
       </body>
     </html>

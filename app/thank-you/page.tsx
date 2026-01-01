@@ -5,6 +5,9 @@ import { Sidebar } from "@/components/Sidebar";
 import { getUser } from "@/lib/supabase/helpers";
 import { getUserMembership } from "@/lib/membership";
 
+// Force dynamic rendering to avoid next-intl config issues during build
+export const dynamic = 'force-dynamic';
+
 export default async function ThankYouPage() {
   const user = await getUser();
   const membership = await getUserMembership();

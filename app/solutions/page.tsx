@@ -3,6 +3,10 @@
 import Link from "next/link";
 import { ArrowRight, Radio, Clock, DollarSign, Zap, CheckCircle2, XCircle } from "lucide-react";
 
+// Note: This is a client component, but we still need to prevent static generation
+// Force dynamic rendering to avoid next-intl config issues during build
+export const dynamic = 'force-dynamic';
+
 export default function SolutionsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">

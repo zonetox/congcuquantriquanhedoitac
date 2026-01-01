@@ -5,6 +5,9 @@ import { Header } from "@/components/Header";
 import { getUserMembership } from "@/lib/membership";
 import { FeedContent } from "@/components/FeedContent";
 
+// Force dynamic rendering to avoid next-intl config issues during build
+export const dynamic = 'force-dynamic';
+
 export default async function FeedPage() {
   const user = await getUser();
 
