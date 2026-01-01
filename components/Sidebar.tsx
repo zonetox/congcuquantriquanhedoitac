@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Target, LayoutDashboard, Settings, Crown, LogOut, Shield, Plus } from "lucide-react";
+import { Target, LayoutDashboard, Settings, Crown, LogOut, Shield, Plus, Rss } from "lucide-react";
 import { signOut } from "@/lib/auth/actions";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
