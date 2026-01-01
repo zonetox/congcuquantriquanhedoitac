@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import { locales, type Locale } from "@/i18n/request";
+import { locales, type Locale } from "@/i18n/config";
 
 /**
  * Cập nhật language preference của user

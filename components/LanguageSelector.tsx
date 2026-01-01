@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Globe, Check } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { locales, type Locale } from "@/i18n/request";
+import { locales, type Locale } from "@/i18n/config";
 import { toast } from "sonner";
 import { updateUserLocale } from "@/lib/user/actions";
 

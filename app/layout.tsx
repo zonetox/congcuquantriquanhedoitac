@@ -3,7 +3,7 @@ import "./globals.css";
 import { Toaster } from "sonner";
 import { NextIntlClientProvider } from "next-intl";
 import { cookies } from "next/headers";
-import { locales, type Locale } from "@/i18n/request";
+import { locales, type Locale } from "@/i18n/config";
 import { getUserLocale } from "@/lib/user/actions";
 
 export const metadata: Metadata = {
