@@ -43,10 +43,28 @@ export async function getSession() {
  * Get current user
  */
 export async function getUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return user;
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+    
+    // If there's an error, return null instead of throwing
+    if (error) {
+      if (process.env.NODE_ENV === "development") {
+        console.error("[getUser] Auth error:", error);
+      }
+      return null;
+    }
+    
+    return user;
+  } catch (error) {
+    // Catch any unexpected errors and return null
+    if (process.env.NODE_ENV === "development") {
+      console.error("[getUser] Unexpected error:", error);
+    }
+    return null;
+  }
 }
 
