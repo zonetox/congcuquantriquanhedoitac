@@ -144,7 +144,7 @@ export async function getInteractionLogs(profileId: string): Promise<{
     profile_id: string;
     user_id: string;
     content: string;
-    interaction_type: string;
+    interaction_type: "note" | "call" | "message" | "comment";
     created_at: string;
   }> | null;
   error: string | null;

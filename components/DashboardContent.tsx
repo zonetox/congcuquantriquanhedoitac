@@ -46,6 +46,7 @@ export function DashboardContent({ profiles, isPremium, hasValidPremium = false,
       map.set(cat.name, cat.color);
     });
     return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categories]);
 
   // Tính số lượng profiles theo category
@@ -63,6 +64,7 @@ export function DashboardContent({ profiles, isPremium, hasValidPremium = false,
     const defaultCats = Object.keys(defaultCategories);
     const userCats = categories.map((c) => c.name);
     return Array.from(new Set([...defaultCats, ...userCats]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categories]);
 
   // Filter profiles theo category được chọn

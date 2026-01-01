@@ -22,13 +22,6 @@ export function ProfileDetailsModal({ isOpen, onClose, profile }: ProfileDetails
   const [logs, setLogs] = useState<InteractionLog[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
 
-  // Load interaction logs when modal opens
-  useEffect(() => {
-    if (isOpen && profile.id) {
-      loadLogs();
-    }
-  }, [isOpen, profile.id]);
-
   const loadLogs = async () => {
     setLoadingLogs(true);
     const result = await getInteractionLogs(profile.id);
@@ -39,6 +32,14 @@ export function ProfileDetailsModal({ isOpen, onClose, profile }: ProfileDetails
     }
     setLoadingLogs(false);
   };
+
+  // Load interaction logs when modal opens
+  useEffect(() => {
+    if (isOpen && profile.id) {
+      loadLogs();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, profile.id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
