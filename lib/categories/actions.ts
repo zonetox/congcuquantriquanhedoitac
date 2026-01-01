@@ -76,31 +76,7 @@ export async function createCategory(
     };
   }
 
-  // Kiểm tra giới hạn categories: Free user tối đa 3, Premium/Trial unlimited
-  const hasValidPremium = await hasValidPremiumAccess();
-  const MAX_FREE_CATEGORIES = 3;
-
-  if (!hasValidPremium) {
-    // Đếm số categories hiện có
-    const { count, error: countError } = await supabase
-      .from("categories")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", user.id);
-
-    if (countError) {
-      return {
-        data: null,
-        error: "Failed to check category limit.",
-      };
-    }
-
-    if ((count || 0) >= MAX_FREE_CATEGORIES) {
-      return {
-        data: null,
-        error: `Free users can only create up to ${MAX_FREE_CATEGORIES} categories. Upgrade to Premium for unlimited categories.`,
-      };
-    }
-  }
+  // Logic mới: Tất cả users đều có thể tạo unlimited categories (full features)
 
   // Kiểm tra duplicate name
   const { data: existing } = await supabase

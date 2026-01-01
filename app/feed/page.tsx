@@ -15,9 +15,12 @@ export default async function FeedPage() {
   const membership = await getUserMembership();
   const userIsPremium = membership.isPremium;
   const userIsAdmin = membership.isAdmin;
+  const hasValidPremium = membership.hasValidPremium;
+  const trialStatus = membership.trialStatus;
+  const trialExpired = trialStatus.isExpired && !userIsPremium;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+    <div className="min-h-screen neu-bg">
       <Sidebar
         userEmail={user.email}
         isPremium={userIsPremium}
@@ -29,7 +32,11 @@ export default async function FeedPage() {
         isAdmin={userIsAdmin}
       />
       <div className="lg:pl-64">
-        <FeedContent />
+        <FeedContent 
+          isPremium={userIsPremium}
+          hasValidPremium={hasValidPremium}
+          trialExpired={trialExpired}
+        />
       </div>
     </div>
   );

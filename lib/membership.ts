@@ -233,12 +233,10 @@ export async function getUserRole(): Promise<"admin" | "user" | null> {
 /**
  * Kiểm tra xem user có thể chọn category 'Competitor' không
  * 
- * Logic:
- * - Free users (không premium và không trong trial): KHÔNG được chọn 'Competitor' (chỉ 'General')
- * - Premium users HOẶC đang trong trial: Được chọn tất cả categories
+ * Logic mới: Tất cả users đều có thể chọn tất cả categories (full features)
  */
 export async function canSelectCompetitorCategory(): Promise<boolean> {
-  return await hasValidPremiumAccess();
+  return true;
 }
 
 /**
@@ -277,12 +275,10 @@ export async function canAddProfile(currentProfileCount: number): Promise<{
 /**
  * Kiểm tra xem user có thể sử dụng Notes feature không
  * 
- * Logic:
- * - Free users (không premium và không trong trial): KHÔNG
- * - Premium users HOẶC đang trong trial: CÓ
+ * Logic mới: Tất cả users đều có thể sử dụng Notes (full features)
  */
 export async function canUseNotes(): Promise<boolean> {
-  return await hasValidPremiumAccess();
+  return true;
 }
 
 /**
@@ -293,7 +289,7 @@ export async function getMembershipInfo(): Promise<{
   role: "admin" | "user" | null;
   canSelectCompetitor: boolean;
   canUseNotes: boolean;
-  maxProfiles: number | null; // null = unlimited
+  maxProfiles: number | null; // null = unlimited (all users have unlimited now)
 }> {
   const [premium, role, canCompetitor, canNotes] = await Promise.all([
     isPremium(),
@@ -307,6 +303,6 @@ export async function getMembershipInfo(): Promise<{
     role,
     canSelectCompetitor: canCompetitor,
     canUseNotes: canNotes,
-    maxProfiles: premium ? null : 5, // 5 for free, null (unlimited) for premium
+    maxProfiles: null, // All users have unlimited profiles (blur from 6th if trial expired)
   };
 }

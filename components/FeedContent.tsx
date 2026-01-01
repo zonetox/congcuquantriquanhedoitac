@@ -8,7 +8,13 @@ import Image from "next/image";
 import { getFaviconUrl, getDomainFromUrl } from "@/lib/utils/url";
 import type { FeedPost } from "@/lib/feed/types";
 
-export function FeedContent() {
+interface FeedContentProps {
+  isPremium?: boolean;
+  hasValidPremium?: boolean;
+  trialExpired?: boolean;
+}
+
+export function FeedContent({ isPremium = false, hasValidPremium = false, trialExpired = false }: FeedContentProps) {
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);

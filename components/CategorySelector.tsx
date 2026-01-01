@@ -113,7 +113,7 @@ export function CategorySelector({
         <select
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          disabled={disabled || !isPremium}
+          disabled={disabled}
           className="flex-1 px-4 py-3 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-700 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {allCategories.map((cat) => (
@@ -122,7 +122,7 @@ export function CategorySelector({
             </option>
           ))}
         </select>
-        {isPremium && !disabled && (
+        {!disabled && (
           <button
             type="button"
             onClick={() => setShowAddForm(!showAddForm)}
@@ -151,7 +151,7 @@ export function CategorySelector({
       )}
 
       {/* Add New Category Form */}
-      {showAddForm && isPremium && (
+      {showAddForm && (
         <div className="p-4 border border-slate-300 dark:border-gray-600 rounded-lg bg-slate-50 dark:bg-gray-800 space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">
@@ -222,11 +222,6 @@ export function CategorySelector({
         </div>
       )}
 
-      {!isPremium && (
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          Free users can only select &quot;General&quot;. Upgrade to Premium to create custom categories.
-        </p>
-      )}
     </div>
   );
 }

@@ -9,8 +9,7 @@ import Image from "next/image";
 import { getFaviconUrl, getDomainFromUrl, isValidUrl, normalizeUrl } from "@/lib/utils/url";
 import { CategorySelector } from "@/components/CategorySelector";
 
-// Giới hạn miễn phí: 5 profiles
-const MAX_PROFILES = 5;
+// Logic mới: Tất cả users có full features, chỉ blur từ profile thứ 6 khi trial expired
 
 interface AddProfileModalProps {
   isOpen: boolean;
@@ -42,10 +41,7 @@ export function AddProfileModal({
   // Cập nhật premium status khi prop thay đổi
   useEffect(() => {
     setIsUserPremium(isPremiumProp);
-    // Free users chỉ được dùng "General", không được dùng "Competitor"
-    if (!isPremiumProp) {
-      setCategory("General");
-    }
+    // Logic mới: Tất cả users có thể chọn bất kỳ category nào
   }, [isPremiumProp]);
 
   // Reset form khi modal đóng
@@ -103,11 +99,7 @@ export function AddProfileModal({
       return;
     }
 
-    // Check free limit
-    if (!isUserPremium && currentProfileCount >= MAX_PROFILES) {
-      setError(`Free limit reached (${MAX_PROFILES} profiles). Please upgrade to Premium for unlimited tracking!`);
-      return;
-    }
+    // Logic mới: Không chặn việc thêm profile, chỉ blur từ thứ 6 khi trial expired
 
     setLoading(true);
 
@@ -116,7 +108,7 @@ export function AddProfileModal({
         normalizedUrl,
         title.trim(),
         notes.trim() || undefined,
-        isUserPremium ? (category || "General") : "General"
+        category || "General"
       );
 
       if (result.error) {
@@ -230,55 +222,31 @@ export function AddProfileModal({
           {/* Category Select - Dynamic Categories */}
           <div>
             <label htmlFor="category" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-              Category {isUserPremium ? "" : "(Premium)"}
+              Category
             </label>
             <CategorySelector
               value={category}
               onChange={setCategory}
-              isPremium={isUserPremium}
+              isPremium={true}
               disabled={loading}
             />
           </div>
 
-          {/* Notes Textarea - Premium Feature */}
+          {/* Notes Textarea - Full Features for All Users */}
           <div>
             <label htmlFor="notes" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-              Quick Notes {isUserPremium ? "" : "(Premium)"}
+              Quick Notes
             </label>
             <textarea
               id="notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder={
-                isUserPremium
-                  ? "Add a quick note about why you're tracking this profile"
-                  : "Upgrade to Premium to add notes"
-              }
+              placeholder="Add a quick note about why you're tracking this profile"
               rows={3}
-              disabled={!isUserPremium || loading}
+              disabled={loading}
               className="w-full px-4 py-3 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-700 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed resize-none"
             />
           </div>
-
-          {/* Free Limit Warning */}
-          {!isUserPremium && (
-            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
-              <p className="text-sm text-amber-800 dark:text-amber-200">
-                {currentProfileCount >= MAX_PROFILES
-                  ? `Free limit reached (${MAX_PROFILES} profiles). Please upgrade to Premium for unlimited tracking!`
-                  : `${currentProfileCount} / ${MAX_PROFILES} profiles used`}
-              </p>
-            </div>
-          )}
-
-          {/* Premium Unlimited Message */}
-          {isUserPremium && (
-            <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4">
-              <p className="text-sm text-emerald-800 dark:text-emerald-200">
-                ✨ Premium: Unlimited profiles
-              </p>
-            </div>
-          )}
 
           {/* Error Message */}
           {error && (
@@ -299,7 +267,7 @@ export function AddProfileModal({
             </button>
             <button
               type="submit"
-              disabled={loading || (!isUserPremium && currentProfileCount >= MAX_PROFILES)}
+              disabled={loading}
               className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-700 hover:to-blue-700 text-white font-semibold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {loading ? (
