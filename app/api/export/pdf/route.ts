@@ -222,7 +222,8 @@ export async function GET(request: NextRequest) {
     // Set response headers
     const filename = `Sales_Opportunities_${new Date().toISOString().split("T")[0]}.pdf`;
 
-    return new NextResponse(pdfBuffer, {
+    // Convert Buffer to Uint8Array for NextResponse
+    return new NextResponse(new Uint8Array(pdfBuffer), {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="${filename}"`,
