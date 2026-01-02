@@ -56,6 +56,10 @@
     "syncing": "Syncing...",
     "refresh": "Refresh",
     "empty": "No posts yet",
+    "emptyTitle": "No posts yet",
+    "emptyMessage": "Click \"Sync Feed\" to fetch posts from your tracked profiles, or enable \"Show in Newsfeed\" on profile cards.",
+    "emptyMessageWithProfiles": "No data yet. Click to start scanning posts from {count} {count, plural, =1 {profile} other {profiles}} you are tracking.",
+    "startScanning": "Start Scanning",
     "emptyDescription": "Click \"Sync Feed\" to fetch posts from your tracked profiles, or enable \"Show in Newsfeed\" on profile cards.",
     "viewOriginal": "View Original",
     "copyLink": "Copy Link",
@@ -69,7 +73,15 @@
     "copySuggestion": "AI response copied",
     "publicComment": "Public Comment",
     "privateMessage": "Private Message",
-    "engagingQuestion": "Engaging Question"
+    "engagingQuestion": "Engaging Question",
+    "salesOpportunityOnly": "Sales Opportunities Only"
+  },
+  "export": {
+    "exportExcel": "Export Excel",
+    "exportPDF": "Export PDF",
+    "exporting": "Exporting...",
+    "exportSuccess": "Exported successfully to {format}",
+    "exportError": "Failed to export report"
   },
   "profile": {
     "title": "Profile Title",

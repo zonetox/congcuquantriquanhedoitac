@@ -2,7 +2,8 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import { sendTelegramAlert, formatSalesOpportunityMessage } from "./service";
+import { sendTelegramAlert, sendEmailAlert, formatSalesOpportunityMessage } from "./service";
+import { logNotification } from "./monitoring";
 
 /**
  * Cập nhật notification settings cho profile
@@ -91,9 +92,7 @@ export async function sendTestNotification(
     };
   }
 
-  const testMessage = `Chúc mừng! Bạn đã kết nối thành công với Partner Center.
-
-⏰ *Thời gian:* ${new Date().toLocaleString()}`;
+  const testMessage = `Chúc mừng! Hệ thống đã kết nối thành công với Telegram của bạn.`;
 
   return await sendTelegramAlert(testMessage, chatId);
 }
@@ -127,6 +126,24 @@ export async function checkAndNotify(): Promise<{
   // 2. notification_sent = false (nếu column tồn tại)
   // 3. Profile có notify_on_sales_opportunity = true và có notify_telegram_chat_id
   
+  // SHARED SCRAPING: Query posts từ profiles user đang theo dõi (không còn filter theo user_id trong profile_posts)
+  // Lấy profiles có notify_on_sales_opportunity = true
+  const { data: profilesWithNotify, error: profilesError } = await supabase
+    .from("profiles_tracked")
+    .select("id, title, url, notify_telegram_chat_id, notify_on_sales_opportunity")
+    .eq("user_id", user.id)
+    .eq("notify_on_sales_opportunity", true)
+    .not("notify_telegram_chat_id", "is", null);
+
+  if (profilesError || !profilesWithNotify || profilesWithNotify.length === 0) {
+    return {
+      notificationsSent: 0,
+      errors: [],
+    };
+  }
+
+  const profileIds = profilesWithNotify.map((p) => p.id);
+
   // Try to query with notification_sent filter first
   let { data: posts, error: postsError } = await supabase
     .from("profile_posts")
@@ -139,7 +156,7 @@ export async function checkAndNotify(): Promise<{
         notify_on_sales_opportunity
       )
     `)
-    .eq("user_id", user.id)
+    .in("profile_id", profileIds)
     .not("ai_analysis", "is", null);
 
   // If error is about missing columns, try without notification columns in select
@@ -157,7 +174,7 @@ export async function checkAndNotify(): Promise<{
           url
         )
       `)
-      .eq("user_id", user.id)
+      .in("profile_id", profileIds)
       .not("ai_analysis", "is", null);
     
     if (basicError) {
@@ -207,6 +224,41 @@ export async function checkAndNotify(): Promise<{
   const errors: string[] = [];
 
   for (const post of postsToNotify) {
+    // FIX RACE CONDITION: Update notification_sent = true trước khi gửi
+    // Nếu update thành công (affected rows > 0), nghĩa là chưa có process nào khác đang xử lý post này
+    // Nếu update fail (affected rows = 0), nghĩa là đã có process khác đánh dấu rồi, skip
+    let canProceed = true;
+    try {
+      const { data: updateData, error: lockError } = await supabase
+        .from("profile_posts")
+        .update({ notification_sent: true })
+        .eq("id", post.id)
+        .eq("notification_sent", false) // Chỉ update nếu notification_sent = false
+        .select("id")
+        .single();
+
+      if (lockError || !updateData) {
+        // Nếu column chưa tồn tại, tiếp tục (graceful fallback)
+        if (lockError && (lockError.message?.includes("column") || lockError.code === "42703")) {
+          // Column doesn't exist, proceed anyway
+        } else {
+          // Đã có process khác đánh dấu rồi, skip post này
+          canProceed = false;
+          if (process.env.NODE_ENV === "development") {
+            console.log(`[checkAndNotify] Post ${post.id} already being processed, skipping`);
+          }
+        }
+      }
+    } catch (lockErr: any) {
+      // Nếu có lỗi khi lock, log nhưng vẫn tiếp tục (fail open)
+      if (process.env.NODE_ENV === "development") {
+        console.warn(`[checkAndNotify] Error locking post ${post.id}:`, lockErr);
+      }
+    }
+
+    if (!canProceed) {
+      continue; // Skip post này, đã có process khác xử lý
+    }
     const profile = Array.isArray(post.profiles_tracked)
       ? post.profiles_tracked[0]
       : post.profiles_tracked;
@@ -228,11 +280,18 @@ export async function checkAndNotify(): Promise<{
     // Format và gửi thông báo
     let message: string;
     try {
+      // Lấy ice breaker đầu tiên từ ai_suggestions
+      let iceBreaker1: string | null = null;
+      if (post.ai_suggestions && Array.isArray(post.ai_suggestions) && post.ai_suggestions.length > 0) {
+        iceBreaker1 = post.ai_suggestions[0];
+      }
+      
       message = formatSalesOpportunityMessage(
         profile.title || "Unknown Profile",
         post.content || "",
         post.post_url,
-        aiAnalysis.summary || null
+        aiAnalysis.summary || null,
+        iceBreaker1
       );
     } catch (formatError: any) {
       if (process.env.NODE_ENV === "development") {
@@ -242,52 +301,66 @@ export async function checkAndNotify(): Promise<{
       continue; // Skip this post
     }
 
-    // Gửi thông báo với error handling tốt hơn
-    let result: { success: boolean; error: string | null };
-    try {
-      result = await sendTelegramAlert(message, profile.notify_telegram_chat_id);
-    } catch (telegramError: any) {
-      // Nếu sendTelegramAlert throw error (không nên xảy ra vì đã có try-catch bên trong)
-      // Nhưng để an toàn, catch ở đây
-      if (process.env.NODE_ENV === "development") {
-        console.error("[checkAndNotify] Unexpected error calling sendTelegramAlert:", telegramError);
+    // Gửi thông báo Telegram
+    let telegramResult: { success: boolean; error: string | null } | null = null;
+    if (profile.notify_telegram_chat_id) {
+      try {
+        telegramResult = await sendTelegramAlert(message, profile.notify_telegram_chat_id);
+        
+        // Log notification history
+        await logNotification(
+          user.id,
+          post.id,
+          post.profile_id,
+          "telegram",
+          profile.notify_telegram_chat_id,
+          message,
+          telegramResult.success ? "sent" : "failed",
+          telegramResult.error || null
+        ).catch((err) => {
+          if (process.env.NODE_ENV === "development") {
+            console.warn("[checkAndNotify] Failed to log notification:", err);
+          }
+        });
+      } catch (telegramError: any) {
+        if (process.env.NODE_ENV === "development") {
+          console.error("[checkAndNotify] Unexpected error calling sendTelegramAlert:", telegramError);
+        }
+        telegramResult = { success: false, error: telegramError.message || "Unknown error" };
+        
+        // Log failed notification
+        await logNotification(
+          user.id,
+          post.id,
+          post.profile_id,
+          "telegram",
+          profile.notify_telegram_chat_id,
+          message,
+          "failed",
+          telegramError.message || "Unknown error"
+        ).catch(() => {});
       }
-      errors.push(`Failed to send notification for post ${post.id}: ${telegramError.message || "Unknown error"}`);
-      continue; // Skip this post, continue with next
     }
 
-    if (result.success) {
-      // Đánh dấu đã gửi thông báo (nếu column tồn tại)
-      try {
-        const { error: updateError } = await supabase
-          .from("profile_posts")
-          .update({ notification_sent: true })
-          .eq("id", post.id);
+    // Gửi thông báo Email (nếu có email trong profile settings - tương lai)
+    // TODO: Thêm email field vào profiles_tracked nếu cần
 
-        // Ignore error if column doesn't exist yet
-        if (updateError) {
-          if (updateError.message?.includes("column") || updateError.code === "42703") {
-            // Column doesn't exist, that's okay - we'll just continue
-            if (process.env.NODE_ENV === "development") {
-              console.warn("[checkAndNotify] notification_sent column doesn't exist yet");
-            }
-          } else {
-            // Other error - log but don't fail
-            if (process.env.NODE_ENV === "development") {
-              console.error("[checkAndNotify] Error updating notification_sent:", updateError);
-            }
-          }
-        }
-      } catch (updateErr: any) {
-        // Catch any unexpected errors during update
+    // Đánh dấu kết quả
+    if (telegramResult?.success) {
+      notificationsSent++;
+    } else if (telegramResult) {
+      // Nếu gửi fail, rollback notification_sent = false để có thể retry sau
+      try {
+        await supabase
+          .from("profile_posts")
+          .update({ notification_sent: false })
+          .eq("id", post.id);
+      } catch (rollbackErr: any) {
         if (process.env.NODE_ENV === "development") {
-          console.warn("[checkAndNotify] Error updating notification_sent:", updateErr);
+          console.warn("[checkAndNotify] Error rolling back notification_sent:", rollbackErr);
         }
       }
-
-      notificationsSent++;
-    } else {
-      errors.push(`Failed to notify for post ${post.id}: ${result.error}`);
+      errors.push(`Failed to notify for post ${post.id}: ${telegramResult.error}`);
     }
   }
 

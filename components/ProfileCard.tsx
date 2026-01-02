@@ -1,11 +1,12 @@
 "use client";
 
 import { getFaviconUrl, getDomainFromUrl } from "@/lib/utils/url";
-import { Trash2, Globe, Radio, Crown, ExternalLink, Lock, Rss, Edit2, Check } from "lucide-react";
-import { useState, memo } from "react";
+import { Trash2, Globe, Radio, Crown, ExternalLink, Lock, Rss, Edit2, Check, AlertCircle } from "lucide-react";
+import { useState, memo, useEffect } from "react";
 import Image from "next/image";
 import { toggleFeedStatus } from "@/lib/profiles/actions";
 import { updateInteraction } from "@/lib/crm/actions";
+import { calculateHealthScore, type HealthScore } from "@/lib/crm/health-score";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -27,23 +28,36 @@ export const ProfileCard = memo(function ProfileCard({ profile, onDelete, onEdit
   const [faviconError, setFaviconError] = useState(false);
   const [isTogglingFeed, setIsTogglingFeed] = useState(false);
   const [isUpdatingInteraction, setIsUpdatingInteraction] = useState(false);
+  const [healthScore, setHealthScore] = useState<HealthScore | null>(null);
+  const [loadingHealthScore, setLoadingHealthScore] = useState(true);
   const router = useRouter();
 
-  // Calculate days since last interaction
-  const getDaysSinceInteraction = (): number | null => {
-    if (!profile.last_interacted_at) return null;
-    const lastInteraction = new Date(profile.last_interacted_at);
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - lastInteraction.getTime());
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
-  };
+  // Load health score when component mounts
+  useEffect(() => {
+    const loadHealthScore = async () => {
+      setLoadingHealthScore(true);
+      const result = await calculateHealthScore(profile.id);
+      if (result.data) {
+        setHealthScore(result.data);
+      }
+      setLoadingHealthScore(false);
+    };
 
-  // Get health score color based on days since interaction
+    loadHealthScore();
+  }, [profile.id, profile.last_interacted_at]);
+
+  // Get health score color (use calculated health score if available, otherwise fallback)
   const getHealthScoreColor = (): { bg: string; text: string; border: string } => {
-    const days = getDaysSinceInteraction();
+    if (healthScore) {
+      return healthScore.color;
+    }
+
+    // Fallback: Calculate from last_interacted_at only
+    const days = profile.last_interacted_at
+      ? Math.floor((Date.now() - new Date(profile.last_interacted_at).getTime()) / (1000 * 60 * 60 * 24))
+      : null;
+
     if (days === null) {
-      // No interaction yet - yellow
       return {
         bg: "bg-yellow-500",
         text: "text-yellow-700",
@@ -51,21 +65,18 @@ export const ProfileCard = memo(function ProfileCard({ profile, onDelete, onEdit
       };
     }
     if (days < 7) {
-      // Green: < 7 days
       return {
         bg: "bg-emerald-500",
         text: "text-emerald-700",
         border: "border-emerald-500",
       };
     } else if (days >= 7 && days <= 14) {
-      // Yellow: 7-14 days
       return {
         bg: "bg-yellow-500",
         text: "text-yellow-700",
         border: "border-yellow-500",
       };
     } else {
-      // Red: > 14 days
       return {
         bg: "bg-red-500",
         text: "text-red-700",
@@ -140,7 +151,7 @@ export const ProfileCard = memo(function ProfileCard({ profile, onDelete, onEdit
   const finalCategoryColor = categoryColor || defaultCategoryColors[profile.category || "General"] || "#64748b";
 
   const healthColor = getHealthScoreColor();
-  const daysSinceInteraction = getDaysSinceInteraction();
+  const daysSinceInteraction = healthScore?.daysSinceInteraction ?? null;
 
   return (
     <div
@@ -158,12 +169,22 @@ export const ProfileCard = memo(function ProfileCard({ profile, onDelete, onEdit
         animationDelay: `${animationDelay}ms`,
       }}
     >
-      {/* Health Score Bar - Top of card */}
-      <div className="absolute top-0 left-0 right-0 h-1.5 rounded-t-neu-lg overflow-hidden">
+      {/* Health Score Bar - Top of card (Heatmap indicator) */}
+      <div className="absolute top-0 left-0 right-0 h-2 rounded-t-neu-lg overflow-hidden">
         <div 
-          className={`h-full ${healthColor.bg} transition-all duration-300`}
+          className={`h-full ${healthColor.bg} transition-all duration-300 ${
+            healthScore?.status === "critical" ? "animate-pulse" : ""
+          }`}
           style={{ width: '100%' }}
         />
+        {/* Critical indicator - Red alert icon */}
+        {healthScore?.status === "critical" && healthScore.newPostsCount > 0 && (
+          <div className="absolute top-1 right-2 z-20">
+            <div className="bg-red-500 rounded-full p-1 shadow-soft-button animate-pulse">
+              <AlertCircle className="w-3 h-3 text-white" />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Quick Interaction Button - Neumorphism Style */}
@@ -257,6 +278,41 @@ export const ProfileCard = memo(function ProfileCard({ profile, onDelete, onEdit
         </div>
       </div>
 
+      {/* Interaction Clock Badge - "Cần chăm sóc" nếu > 7 days */}
+      {(() => {
+        if (!profile.last_contacted_at) {
+          // Chưa từng liên hệ
+          return (
+            <div className="absolute top-16 right-3 z-10">
+              <div
+                className="px-2 py-1 rounded-full text-xs font-semibold shadow-soft-out bg-red-100 text-red-700 border border-red-300 animate-pulse"
+                title="Chưa từng liên hệ. Cần chăm sóc ngay!"
+              >
+                🚨 Cần chăm sóc
+              </div>
+            </div>
+          );
+        }
+        
+        const daysSinceContact = Math.floor(
+          (Date.now() - new Date(profile.last_contacted_at).getTime()) / (1000 * 60 * 60 * 24)
+        );
+        
+        if (daysSinceContact > 7) {
+          return (
+            <div className="absolute top-16 right-3 z-10">
+              <div
+                className="px-2 py-1 rounded-full text-xs font-semibold shadow-soft-out bg-red-100 text-red-700 border border-red-300"
+                title={`Chưa liên hệ ${daysSinceContact} ngày. Cần chăm sóc ngay!`}
+              >
+                🚨 Cần chăm sóc
+              </div>
+            </div>
+          );
+        }
+        return null;
+      })()}
+
       {/* Business Card Content */}
       <div className="flex flex-col items-center text-center space-y-4 pt-2">
         {/* Logo - Neumorphism Style */}
@@ -309,6 +365,18 @@ export const ProfileCard = memo(function ProfileCard({ profile, onDelete, onEdit
           <p className="text-sm font-medium text-slate-600 truncate mt-3">
             {getDomainFromUrl(profile.url)}
           </p>
+          
+          {/* Health Score Info - Show warning if critical */}
+          {healthScore && healthScore.status === "critical" && healthScore.newPostsCount > 0 && (
+            <div className="mt-2 px-2 py-1 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+              <div className="flex items-center gap-1.5">
+                <AlertCircle className="w-3 h-3 text-red-600 flex-shrink-0" />
+                <p className="text-xs text-red-700 dark:text-red-300 font-medium">
+                  {healthScore.newPostsCount} {healthScore.newPostsCount === 1 ? "new post" : "new posts"} • {daysSinceInteraction} {daysSinceInteraction === 1 ? "day" : "days"} since interaction
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

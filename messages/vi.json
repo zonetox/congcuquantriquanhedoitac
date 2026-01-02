@@ -56,6 +56,10 @@
     "syncing": "Đang đồng bộ...",
     "refresh": "Làm mới",
     "empty": "Chưa có bài đăng",
+    "emptyTitle": "Chưa có dữ liệu",
+    "emptyMessage": "Nhấn \"Đồng bộ bảng tin\" để lấy bài đăng từ các hồ sơ bạn theo dõi, hoặc bật \"Hiển thị trên Newsfeed\" trên thẻ hồ sơ.",
+    "emptyMessageWithProfiles": "Chưa có dữ liệu. Nhấn để bắt đầu quét tin từ {count} {count, plural, =1 {hồ sơ} other {hồ sơ}} bạn đang theo dõi.",
+    "startScanning": "Bắt đầu quét",
     "emptyDescription": "Nhấn \"Đồng bộ bảng tin\" để lấy bài đăng từ các hồ sơ bạn theo dõi, hoặc bật \"Hiển thị trên Newsfeed\" trên thẻ hồ sơ.",
     "viewOriginal": "Xem bản gốc",
     "copyLink": "Sao chép liên kết",
@@ -69,7 +73,15 @@
     "engagingQuestion": "Câu hỏi gợi mở",
     "linkCopied": "Đã sao chép liên kết!",
     "noLink": "Không có liên kết",
-    "syncSuccess": "Đã đồng bộ! Tạo {count} bài đăng mới."
+    "syncSuccess": "Đã đồng bộ! Tạo {count} bài đăng mới.",
+    "salesOpportunityOnly": "Chỉ xem Cơ hội bán hàng"
+  },
+  "export": {
+    "exportExcel": "Xuất Excel",
+    "exportPDF": "Xuất PDF",
+    "exporting": "Đang xuất...",
+    "exportSuccess": "Xuất thành công file {format}",
+    "exportError": "Không thể xuất báo cáo"
   },
   "profile": {
     "title": "Tiêu đề hồ sơ",

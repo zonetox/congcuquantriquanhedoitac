@@ -3,6 +3,8 @@
  * Gửi thông báo qua Telegram và Email khi phát hiện Sales Opportunity
  */
 
+import { checkTelegramRateLimit } from "./monitoring";
+
 interface TelegramMessage {
   chat_id: string;
   text: string;
@@ -29,6 +31,15 @@ export async function sendTelegramAlert(
     return {
       success: false,
       error: "Telegram Chat ID is required.",
+    };
+  }
+
+  // Check rate limit trước khi gửi
+  const rateLimitCheck = await checkTelegramRateLimit(chatId.trim());
+  if (!rateLimitCheck.allowed) {
+    return {
+      success: false,
+      error: rateLimitCheck.error || "Rate limit exceeded. Please try again later.",
     };
   }
 
@@ -172,29 +183,118 @@ export async function sendTelegramAlert(
 }
 
 /**
- * Gửi thông báo qua Email (sử dụng Resend hoặc SMTP)
- * TODO: Implement email service khi cần
+ * Gửi thông báo qua Email (sử dụng Resend)
  */
 export async function sendEmailAlert(
   to: string,
   subject: string,
-  message: string
+  htmlMessage: string
 ): Promise<{ success: boolean; error: string | null }> {
-  // Placeholder - sẽ implement sau nếu cần
-  // Có thể dùng Resend, SendGrid, hoặc SMTP
-  
-  if (process.env.NODE_ENV === "development") {
-    console.log("[sendEmailAlert] Email notification (not implemented):", {
-      to,
-      subject,
-      message,
-    });
+  const resendApiKey = process.env.RESEND_API_KEY;
+
+  if (!resendApiKey) {
+    if (process.env.NODE_ENV === "development") {
+      console.warn("[sendEmailAlert] RESEND_API_KEY not configured. Skipping email notification.");
+    }
+    return {
+      success: false,
+      error: "RESEND_API_KEY is not configured. Please set it in environment variables.",
+    };
   }
 
-  return {
-    success: false,
-    error: "Email notifications are not yet implemented",
-  };
+  if (!to || !to.includes("@")) {
+    return {
+      success: false,
+      error: "Invalid email address.",
+    };
+  }
+
+  try {
+    const resendApiUrl = "https://api.resend.com/emails";
+    
+    const payload = {
+      from: process.env.RESEND_FROM_EMAIL || "Partner Center <notifications@partnercenter.com>",
+      to: [to.trim()],
+      subject: subject,
+      html: htmlMessage,
+    };
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+    let response: Response;
+    try {
+      response = await fetch(resendApiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${resendApiKey}`,
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+      if (fetchError.name === "AbortError") {
+        return {
+          success: false,
+          error: "Email API request timeout. Please check your network connection.",
+        };
+      }
+      throw fetchError;
+    }
+
+    if (!response.ok) {
+      let errorMessage = `Email API error: ${response.status} ${response.statusText}`;
+      try {
+        const errorData = await response.json();
+        if (errorData.message) {
+          errorMessage = errorData.message;
+        }
+      } catch {
+        const text = await response.text().catch(() => "");
+        if (text) {
+          errorMessage = text.substring(0, 200);
+        }
+      }
+
+      return {
+        success: false,
+        error: errorMessage,
+      };
+    }
+
+    const data = await response.json();
+
+    if (data.error) {
+      return {
+        success: false,
+        error: data.error.message || "Failed to send email",
+      };
+    }
+
+    return {
+      success: true,
+      error: null,
+    };
+  } catch (error: any) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("[sendEmailAlert] Unexpected error:", error);
+    }
+
+    let errorMessage = "Failed to send email notification";
+    if (error.name === "AbortError") {
+      errorMessage = "Request timeout. Please check your network connection.";
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+
+    return {
+      success: false,
+      error: errorMessage,
+    };
+  }
 }
 
 /**
@@ -204,27 +304,22 @@ export function formatSalesOpportunityMessage(
   profileTitle: string,
   postContent: string,
   postUrl: string | null,
-  aiSummary: string | null
+  aiSummary: string | null,
+  iceBreaker1: string | null
 ): string {
   const summary = aiSummary || "New post detected";
+  const iceBreaker = iceBreaker1 || "Hãy liên hệ để tìm hiểu thêm";
   const url = postUrl || "N/A";
   
   // Format Markdown với link bài viết gốc
-  const postContentPreview = postContent.substring(0, 200) + (postContent.length > 200 ? "..." : "");
-  const linkText = url && url !== "N/A" ? `[Xem bài viết gốc](${url})` : "N/A";
+  const linkText = url && url !== "N/A" ? `[Mở bài viết ngay](${url})` : "N/A";
   
-  return `🚨 *CẢNH BÁO CƠ HỘI*
+  return `🚀 *PARTNER CENTER - CƠ HỘI MỚI*
 
-📊 *Profile:* ${profileTitle}
+👤 *Khách hàng:* ${profileTitle}
 📝 *Tóm tắt:* ${summary}
+💡 *Gợi ý:* ${iceBreaker}
 
-💬 *Nội dung bài đăng:*
-${postContentPreview}
-
-🔗 *Link bài viết:* ${linkText}
-
-⏰ *Thời gian:* ${new Date().toLocaleString()}
-
-💡 _Đừng bỏ lỡ cơ hội này! Kiểm tra dashboard để xem gợi ý từ AI._`;
+🔗 ${linkText}`;
 }
 

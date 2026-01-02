@@ -4,6 +4,8 @@ import { Sidebar } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
 import { getUserMembership } from "@/lib/membership";
 import { FeedContent } from "@/components/FeedContent";
+import { getCategories } from "@/lib/categories/actions";
+import { getFeedProfilesCount } from "@/lib/feed/actions";
 
 // Force dynamic rendering to avoid next-intl config issues during build
 export const dynamic = 'force-dynamic';
@@ -23,12 +25,22 @@ export default async function FeedPage() {
     hasValidPremium: false,
     trialStatus: { daysLeft: null, isActive: false, isExpired: false }
   };
+  let categories = null;
+  let profilesCount = 0;
   
   try {
-    membership = await getUserMembership();
+    const [membershipResult, categoriesResult, profilesCountResult] = await Promise.all([
+      getUserMembership().catch(() => membership),
+      getCategories().catch(() => ({ data: null, error: null })),
+      getFeedProfilesCount().catch(() => ({ count: 0, error: null })),
+    ]);
+    
+    membership = membershipResult;
+    categories = categoriesResult.data;
+    profilesCount = profilesCountResult.count;
   } catch (error) {
     if (process.env.NODE_ENV === "development") {
-      console.error("[FeedPage] Error fetching membership:", error);
+      console.error("[FeedPage] Error fetching data:", error);
     }
     // Use default values if fetch fails
   }
@@ -56,6 +68,8 @@ export default async function FeedPage() {
           isPremium={userIsPremium}
           hasValidPremium={hasValidPremium}
           trialExpired={trialExpired}
+          categories={categories || []}
+          profilesCount={profilesCount}
         />
       </div>
     </div>

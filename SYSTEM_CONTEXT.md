@@ -45,6 +45,7 @@ CREATE TABLE public.profiles_tracked (
   notes TEXT NULL,
   has_new_update BOOLEAN NULL DEFAULT false,
   is_in_feed BOOLEAN NULL DEFAULT false,
+  last_synced_at TIMESTAMP WITH TIME ZONE NULL, -- Module 4.1: Thời gian sync cuối cùng (Shared Scraping)
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now()),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
   CONSTRAINT profiles_tracked_pkey PRIMARY KEY (id),
@@ -69,6 +70,7 @@ CREATE TABLE public.profiles_tracked (
 | `relationship_score` | INTEGER | NULLABLE, DEFAULT 100 | Điểm sức khỏe mối quan hệ (0-100) (CRM Module v1.0) |
 | `notify_telegram_chat_id` | TEXT | NULLABLE | Telegram Chat ID để nhận thông báo (Module 3 - Smart Trigger) |
 | `notify_on_sales_opportunity` | BOOLEAN | NULLABLE, DEFAULT true | Có nhận cảnh báo khi phát hiện Sales Opportunity không (Module 3) |
+| `last_synced_at` | TIMESTAMP WITH TIME ZONE | NULLABLE | Module 4.1: Thời gian sync cuối cùng (Shared Scraping - chỉ sync nếu > 1 giờ) |
 | `created_at` | TIMESTAMP WITH TIME ZONE | NOT NULL, DEFAULT now() | Thời gian tạo record |
 | `updated_at` | TIMESTAMP WITH TIME ZONE | NULLABLE, DEFAULT now() | Thời gian cập nhật record (tự động cập nhật bởi trigger) (v3.2) |
 
@@ -82,6 +84,7 @@ CREATE TABLE public.profiles_tracked (
 - `idx_profiles_tracked_last_interacted_at` (BTREE) trên `last_interacted_at DESC NULLS LAST` - Tối ưu CRM queries (CRM v1.0)
 - `idx_profiles_tracked_relationship_score` (BTREE) trên `relationship_score DESC NULLS LAST` - Tối ưu sort theo điểm sức khỏe (CRM v1.0)
 - `idx_profiles_tracked_user_interaction` (BTREE) trên `(user_id, last_interacted_at DESC NULLS LAST)` - Tối ưu query theo user và ngày tương tác (CRM v1.0)
+- `idx_profiles_tracked_last_synced_at` (BTREE) trên `last_synced_at DESC NULLS LAST` - Module 4.1: Tối ưu query profiles cần sync (Shared Scraping)
 
 **Row Level Security (RLS)**:
 - ✅ RLS đã được bật
@@ -106,6 +109,7 @@ CREATE TABLE public.profiles_tracked (
 - **LUÔN** kiểm tra `user_id` khi query để đảm bảo security
 - **Trigger tự động**: `updated_at` được tự động cập nhật bởi trigger, không cần set thủ công
 - **Indexes**: Đã được tối ưu cho category filter và Newsfeed queries (v3.2)
+- **Module 4.1 - Shared Scraping**: `last_synced_at` được dùng để tránh scrape trùng lặp (chỉ scrape nếu > 1 giờ kể từ lần sync cuối)
 
 ---
 
@@ -263,9 +267,9 @@ CREATE TABLE public.api_key_pool (
 - Key tự động chuyển sang `rate_limited` khi vượt quota
 - Key tự động chuyển sang `dead` sau nhiều lần lỗi
 
-### 5. Bảng `public.profile_posts` ✅ Newsfeed Module - Posts
+### 5. Bảng `public.profile_posts` ✅ Newsfeed Module - Posts (Shared Scraping v4.1)
 
-**Mục đích**: Lưu trữ các bài đăng từ profiles được theo dõi (Newsfeed Module v2A).
+**Mục đích**: Lưu trữ các bài đăng từ profiles được theo dõi (Newsfeed Module v2A). **Module 4.1**: Dữ liệu chung cho tất cả users (Shared Scraping).
 
 **Schema chi tiết**:
 
@@ -273,13 +277,14 @@ CREATE TABLE public.api_key_pool (
 CREATE TABLE public.profile_posts (
   id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
   profile_id UUID REFERENCES public.profiles_tracked(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES auth.users(id),
+  -- ❌ REMOVED: user_id (Module 4.1 - Shared Scraping)
   content TEXT,
   post_url TEXT,
   image_url TEXT,
   published_at TIMESTAMP WITH TIME ZONE,
-  ai_analysis JSONB, -- Lưu tóm tắt và Sales Signals sau này
-  ai_suggestions JSONB, -- Lưu Ice Breakers sau này
+  ai_analysis JSONB, -- Lưu tóm tắt và Sales Signals sau này (Shared cho tất cả users)
+  ai_suggestions JSONB, -- Lưu Ice Breakers sau này (Shared cho tất cả users)
+  notification_sent BOOLEAN DEFAULT false, -- Module 3
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 ```
@@ -290,32 +295,47 @@ CREATE TABLE public.profile_posts (
 |--------|------|-----------|-------|
 | `id` | UUID | PRIMARY KEY | ID tự động |
 | `profile_id` | UUID | FOREIGN KEY → profiles_tracked(id) | ID của profile tạo post này |
-| `user_id` | UUID | FOREIGN KEY → auth.users(id) | ID của user sở hữu profile |
+| ~~`user_id`~~ | ~~UUID~~ | ~~REMOVED (Module 4.1)~~ | ~~Đã loại bỏ - posts là dữ liệu chung~~ |
 | `content` | TEXT | NULLABLE | Nội dung bài đăng |
 | `post_url` | TEXT | NULLABLE | Link đến bài đăng gốc |
 | `image_url` | TEXT | NULLABLE | Link đến hình ảnh bài đăng (nếu có) |
 | `published_at` | TIMESTAMP WITH TIME ZONE | NULLABLE | Thời gian đăng bài (từ source) |
-| `ai_analysis` | JSONB | NULLABLE | Phân tích AI (tóm tắt, Sales Signals) - ✅ Module 2B |
-| `ai_suggestions` | JSONB | NULLABLE | Gợi ý AI (Ice Breakers) - ✅ Module 2B |
+| `ai_analysis` | JSONB | NULLABLE | Phân tích AI (Shared - nếu User 1 phân tích, User 2 dùng kết quả có sẵn) - ✅ Module 2B + 4.1 |
+| `ai_suggestions` | JSONB | NULLABLE | Gợi ý AI (Shared) - ✅ Module 2B + 4.1 |
 | `notification_sent` | BOOLEAN | NULLABLE, DEFAULT false | Đã gửi thông báo cho Sales Opportunity chưa (Module 3) |
 | `created_at` | TIMESTAMP WITH TIME ZONE | DEFAULT now() | Thời gian tạo record |
 
-**Indexes** (Newsfeed v2A):
+**Indexes** (Newsfeed v2A + Scraper Engine v2 + Shared Scraping v4.1):
 - `idx_profile_posts_profile_id` (BTREE) trên `profile_id` - Tối ưu query posts theo profile
-- `idx_profile_posts_user_id` (BTREE) trên `user_id` - Tối ưu query posts theo user
-- `idx_profile_posts_user_published` (BTREE) trên `(user_id, published_at DESC NULLS LAST)` - Tối ưu Newsfeed queries
+- ~~`idx_profile_posts_user_id`~~ (REMOVED - Module 4.1)
+- ~~`idx_profile_posts_user_published`~~ (REMOVED - Module 4.1)
+- ~~`idx_profile_posts_user_published_ai`~~ (REMOVED - Module 4.1)
 - `idx_profile_posts_created_at` (BTREE) trên `created_at DESC` - Tối ưu sort theo thời gian tạo
+- `profile_posts_post_url_profile_unique` (UNIQUE) trên `(profile_id, post_url)` WHERE `post_url IS NOT NULL` - Tránh duplicate posts (Scraper Engine)
+- `idx_profile_posts_ai_analysis_gin` (GIN) trên `ai_analysis` - Tối ưu query JSONB (AI Intent v2)
+- `idx_profile_posts_published_at` (BTREE) trên `published_at DESC` - Tối ưu weekly sales opportunities
+- `idx_profile_posts_intent_score` (BTREE) trên `get_intent_score(ai_analysis)` - Tối ưu filter intent_score > 70
+- `idx_profile_posts_sales_opportunity` (BTREE) trên `get_signal(ai_analysis)` - Tối ưu filter Sales Opportunities
 
 **Row Level Security (RLS)**:
 - ✅ RLS đã được bật
-- Policy: "Users view own posts" (SELECT)
-- Chỉ cho phép user xem posts của chính họ: `auth.uid() = user_id`
+- Policy: "Users view posts from tracked profiles" (SELECT) - Module 4.1
+- Chỉ cho phép user xem posts từ profiles họ đang theo dõi: `EXISTS (SELECT 1 FROM profiles_tracked WHERE id = profile_posts.profile_id AND user_id = auth.uid())`
 
-**Cấu trúc JSON cho `ai_analysis` (Module 2B)**:
+**⚠️ MODULE 4.1 - SHARED SCRAPING**:
+- ✅ **Dữ liệu chung**: Một post chỉ tồn tại 1 bản ghi duy nhất cho tất cả users
+- ✅ **AI Analysis Shared**: Nếu User 1 đã phân tích post A, User 2 sẽ dùng kết quả có sẵn (tiết kiệm 100% chi phí AI)
+- ✅ **Scraping Shared**: Mỗi profile chỉ được scrape 1 lần/giờ, tất cả users cùng chia sẻ dữ liệu
+- ✅ **User Interactions**: Trạng thái riêng của mỗi user (đã đọc, đã ẩn) được lưu trong bảng `user_post_interactions`
+
+**Cấu trúc JSON cho `ai_analysis` (Module 2B + Scraper Engine v2 + AI Intent v2)**:
 ```json
 {
   "summary": "Tóm tắt bài đăng dưới 15 từ",
-  "signal": "Cơ hội bán hàng" | "Tin cá nhân" | "Tin thị trường" | "Khác"
+  "signal": "Cơ hội bán hàng" | "Tin cá nhân" | "Tin thị trường" | "Khác",
+  "opportunity_score": 0-10,  // Nhiệt năng cơ hội (chỉ áp dụng khi signal = "Cơ hội bán hàng")
+  "intent_score": 1-100,  // Ý định mua hàng (đa ngôn ngữ) - AI Intent v2
+  "keywords": ["tìm đối tác", "báo giá", "cần tư vấn"]  // Từ khóa phát hiện
 }
 ```
 
@@ -1240,6 +1260,145 @@ Respond in JSON format:
 
 ---
 
+## 🚨 SMART TRIGGER (Module 3 - Instant Alerts)
+
+### 1. Notification Service (`lib/notifications/service.ts`)
+
+**Mục đích**: Gửi thông báo tức thì qua Telegram khi AI phát hiện Sales Opportunity.
+
+**Function chính**:
+
+#### `sendTelegramAlert(message: string, chatId: string): Promise<{success: boolean, error: string | null}>`
+- **Input**: 
+  - `message`: Nội dung tin nhắn (Markdown format)
+  - `chatId`: Telegram Chat ID của người nhận
+- **Output**: `{success: boolean, error: string | null}`
+- **API**: Telegram Bot API (`https://api.telegram.org/bot{token}/sendMessage`)
+- **Parse Mode**: Markdown
+- **Timeout**: 10 giây
+- **Error Handling**: 
+  - Invalid Chat ID → "Invalid Telegram Chat ID. Please check your Chat ID and make sure you've started a conversation with the bot."
+  - Bot blocked → "Bot is blocked by user. Please unblock the bot and try again."
+  - Message too long → "Message is too long. Please contact support."
+  - Rate limit → "Telegram API rate limit exceeded. Please try again later."
+  - Invalid token → "Invalid Telegram Bot Token. Please check your TELEGRAM_BOT_TOKEN environment variable."
+
+#### `formatSalesOpportunityMessage(profileTitle, postContent, postUrl, aiSummary, iceBreaker1): string`
+- **Input**:
+  - `profileTitle`: Tên profile (khách hàng)
+  - `postContent`: Nội dung bài đăng (không dùng trong message, chỉ để reference)
+  - `postUrl`: Link bài viết gốc
+  - `aiSummary`: Tóm tắt từ AI
+  - `iceBreaker1`: Ice breaker đầu tiên từ `ai_suggestions[0]`
+- **Output**: Markdown formatted message:
+  ```
+  🚀 *PARTNER CENTER - CƠ HỘI MỚI*
+  
+  👤 *Khách hàng:* {Profile_Name}
+  📝 *Tóm tắt:* {AI_Summary}
+  💡 *Gợi ý:* {Ice_Breaker_1}
+  
+  🔗 [Mở bài viết ngay]({Post_URL})
+  ```
+
+**Environment Variable**:
+- `TELEGRAM_BOT_TOKEN`: Telegram Bot Token (server-side only)
+
+### 2. Notification Actions (`lib/notifications/actions.ts`)
+
+**Server Actions**:
+
+#### `updateNotificationSettings(profileId, settings)`
+- **Mục đích**: Cập nhật cấu hình thông báo cho profile
+- **Settings**:
+  - `notify_telegram_chat_id`: Telegram Chat ID (string | null)
+  - `notify_on_sales_opportunity`: Bật/tắt thông báo (boolean)
+- **Logic**: Update vào `profiles_tracked` table với RLS check
+
+#### `sendTestNotification(chatId)`
+- **Mục đích**: Gửi tin nhắn thử nghiệm để kiểm tra kết nối
+- **Message**: "Chúc mừng! Hệ thống đã kết nối thành công với Telegram của bạn."
+
+#### `checkAndNotify()`
+- **Mục đích**: Tự động kiểm tra và gửi thông báo cho Sales Opportunities
+- **Logic**:
+  1. Query posts có `ai_analysis.signal === "Cơ hội bán hàng"`
+  2. Filter posts có `notification_sent === false` (nếu column tồn tại)
+  3. Kiểm tra profile có `notify_on_sales_opportunity === true` và có `notify_telegram_chat_id`
+  4. Format message với `formatSalesOpportunityMessage()` (bao gồm ice breaker đầu tiên)
+  5. Gửi thông báo qua `sendTelegramAlert()`
+  6. Cập nhật `notification_sent = true` sau khi gửi thành công
+- **Return**: `{notificationsSent: number, errors: string[]}`
+- **Error Handling**: Graceful fallback nếu database columns chưa tồn tại (code 42703)
+
+#### `getNotificationSettings()`
+- **Mục đích**: Lấy cấu hình thông báo của tất cả profiles của user
+- **Return**: Array of `{profile_id, profile_title, notify_telegram_chat_id, notify_on_sales_opportunity}`
+
+### 3. UI Component (`components/NotificationSettings.tsx`)
+
+**Mục đích**: Giao diện Neumorphism để cấu hình thông báo Telegram.
+
+**Features**:
+- **Neumorphism Design**:
+  - Card: `rounded-3xl`, `shadow-soft-out`
+  - Input Chat ID: `rounded-2xl`, `shadow-soft-in`
+  - Nút "Gửi tin thử nghiệm": Gradient emerald, `shadow-soft-out`, hiệu ứng lún khi click (`active:shadow-soft-button-pressed`)
+  - Switch toggle: Neumorphism style với shadow
+- **Telegram Chat ID Input**: 
+  - Placeholder: "Enter your Telegram Chat ID"
+  - Instruction: "Nhấn vào @userinfobot để lấy ID của bạn"
+  - Auto-save khi blur
+- **Toggle Switch**: "Bật thông báo khi có cơ hội bán hàng"
+- **Test Button**: "Gửi tin thử nghiệm" với loading state
+- **Info Box**: Hướng dẫn lấy Telegram Chat ID từ @userinfobot
+
+**Location**: Settings page (`app/settings/page.tsx`)
+
+### 4. Automation Integration
+
+**File**: `lib/feed/actions.ts`
+
+**Function**: `syncFeed()`
+
+**Logic**:
+1. Sau khi tạo posts và phân tích AI xong
+2. Tự động gọi `checkAndNotify()` để kiểm tra Sales Opportunities
+3. Gửi thông báo ngay lập tức nếu:
+   - `signal === "Cơ hội bán hàng"`
+   - `notify_on_sales_opportunity === true`
+   - Có `notify_telegram_chat_id`
+   - `notification_sent === false`
+4. Log kết quả (development mode only)
+
+**⚠️ QUAN TRỌNG**: 
+- Notification không block sync process nếu fail
+- Chỉ gửi thông báo một lần cho mỗi post (dùng `notification_sent` flag)
+- Error handling graceful: Nếu database columns chưa tồn tại, không crash, chỉ log warning
+
+### 5. Database Schema
+
+**Bảng `profiles_tracked`**:
+- `notify_telegram_chat_id` (TEXT, NULLABLE): Telegram Chat ID
+- `notify_on_sales_opportunity` (BOOLEAN, NULLABLE, DEFAULT true): Bật/tắt thông báo
+
+**Bảng `profile_posts`**:
+- `notification_sent` (BOOLEAN, NULLABLE, DEFAULT false): Đánh dấu đã gửi thông báo
+
+**Indexes**:
+- `idx_profile_posts_notification_sent`: Tối ưu query posts chưa gửi thông báo
+- `idx_profiles_tracked_notify_settings`: Tối ưu query profiles có bật thông báo và có Chat ID
+
+**SQL Script**: `SQL_MODULE_3_SMART_TRIGGER.sql`
+
+### 6. Security
+
+- **Environment Variable**: `TELEGRAM_BOT_TOKEN` chỉ dùng server-side
+- **RLS**: User chỉ có thể cập nhật notification settings của chính họ
+- **Validation**: Chat ID được trim và validate trước khi lưu
+
+---
+
 ## 📦 ENVIRONMENT VARIABLES
 
 **File**: `.env.local` (⚠️ KHÔNG commit lên Git)
@@ -1265,6 +1424,7 @@ TELEGRAM_BOT_TOKEN=your-telegram-bot-token
 **⚠️ QUAN TRỌNG**: 
 - `NEXT_PUBLIC_*` variables có thể truy cập từ client-side
 - `SUPABASE_SERVICE_ROLE_KEY`, `LEMON_SQUEEZY_WEBHOOK_SECRET`, `OPENAI_API_KEY`, và `TELEGRAM_BOT_TOKEN` chỉ dùng server-side
+- Xem `ENV_SETUP_TELEGRAM.md` để biết cách cấu hình Telegram Bot
 
 ---
 
@@ -1609,9 +1769,36 @@ Trước khi commit code, đảm bảo:
 
 ---
 
-**📅 Last Updated**: 2024-12-19
-**Version**: 3.2.0 (Dashboard Category Tabs & Profile Editing)
+**📅 Last Updated**: 2024-12-20
+**Version**: 3.3.0 (Module 3 - Smart Trigger / Telegram Notifications)
 **Maintained by**: Development Team
+
+**🔄 Recent Updates** (2024-12-20):
+
+**Module 3 - Smart Trigger (Telegram Notifications)** (v3.3.0):
+- ✅ **Telegram Notification Service**: Hoàn thiện hệ thống cảnh báo tức thì qua Telegram
+  - `sendTelegramAlert()`: Gửi thông báo với Markdown format, timeout 10s, error handling đầy đủ
+  - `formatSalesOpportunityMessage()`: Format message theo yêu cầu (🚀 PARTNER CENTER - CƠ HỘI MỚI)
+  - Test message: "Chúc mừng! Hệ thống đã kết nối thành công với Telegram của bạn."
+- ✅ **Notification Settings UI**: Giao diện Neumorphism trong Settings page
+  - Card `rounded-3xl` với shadow mềm mại
+  - Input Chat ID với `shadow-soft-in`
+  - Nút "Gửi tin thử nghiệm" với gradient emerald và hiệu ứng lún khi click
+  - Toggle switch Neumorphism style
+  - Hướng dẫn lấy Chat ID từ @userinfobot
+- ✅ **Automation**: Tự động gửi thông báo khi phát hiện Sales Opportunity
+  - `checkAndNotify()`: Tự động kiểm tra và gửi thông báo sau khi sync feed
+  - Chỉ gửi khi: `signal === "Cơ hội bán hàng"`, `notify_on_sales_opportunity === true`, có Chat ID, `notification_sent === false`
+  - Cập nhật `notification_sent = true` sau khi gửi thành công
+  - Graceful error handling: Không crash nếu database columns chưa tồn tại
+- ✅ **Database Schema**: Đã thêm columns và indexes
+  - `profiles_tracked.notify_telegram_chat_id`: Telegram Chat ID
+  - `profiles_tracked.notify_on_sales_opportunity`: Bật/tắt thông báo (default: true)
+  - `profile_posts.notification_sent`: Đánh dấu đã gửi thông báo (default: false)
+  - Indexes: `idx_profile_posts_notification_sent`, `idx_profiles_tracked_notify_settings`
+- ✅ **Documentation**: 
+  - `ENV_SETUP_TELEGRAM.md`: Hướng dẫn cấu hình Telegram Bot
+  - Cập nhật `SYSTEM_CONTEXT.md` với đầy đủ thông tin Module 3
 
 **🔄 Recent Updates** (2024-12-19):
 

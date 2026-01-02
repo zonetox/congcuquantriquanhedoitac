@@ -108,32 +108,32 @@ export function NotificationSettings() {
       </div>
 
       {settings.length === 0 ? (
-        <div className="neu-card rounded-lg p-6 text-center">
+        <div className="neu-card rounded-3xl p-8 text-center shadow-soft-out">
           <p className="text-slate-600 dark:text-slate-400">
             No profiles available. Add profiles to configure notifications.
           </p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-6">
           {settings.map((setting) => (
             <div
               key={setting.profile_id}
-              className="neu-card rounded-lg p-6 shadow-soft-out"
+              className="neu-card rounded-3xl p-8 shadow-soft-out"
             >
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {/* Profile Title */}
                 <div>
-                  <h3 className="font-semibold text-slate-900 dark:text-white">
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
                     {setting.profile_title}
                   </h3>
                 </div>
 
                 {/* Telegram Chat ID Input */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
                     Telegram Chat ID
                   </label>
-                  <div className="flex gap-2">
+                  <div className="flex gap-3">
                     <input
                       type="text"
                       defaultValue={setting.notify_telegram_chat_id || ""}
@@ -143,7 +143,7 @@ export function NotificationSettings() {
                           handleChatIdChange(setting.profile_id, e.target.value);
                         }
                       }}
-                      className="flex-1 px-4 py-2 neu-input rounded-lg shadow-soft-in border-0 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white bg-slate-50 dark:bg-gray-700"
+                      className="flex-1 px-5 py-3 neu-input rounded-2xl shadow-soft-in border-0 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 text-slate-900 dark:text-white bg-slate-50 dark:bg-gray-700 transition-all"
                     />
                     <button
                       onClick={() =>
@@ -156,7 +156,7 @@ export function NotificationSettings() {
                         testing[setting.profile_id] ||
                         !setting.notify_telegram_chat_id
                       }
-                      className="px-4 py-2 neu-button rounded-lg shadow-soft-out hover:shadow-soft-button-pressed active:shadow-soft-button-pressed transition-all text-sm font-medium text-slate-700 dark:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      className="px-6 py-3 neu-button rounded-2xl shadow-soft-out hover:shadow-soft-button-pressed active:shadow-soft-button-pressed transition-all text-sm font-semibold text-slate-700 dark:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/30 dark:to-emerald-800/30"
                     >
                       {testing[setting.profile_id] ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -166,13 +166,13 @@ export function NotificationSettings() {
                       Gửi tin thử nghiệm
                     </button>
                   </div>
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
                     Nhấn vào @userinfobot để lấy ID của bạn
                   </p>
                 </div>
 
                 {/* Toggle Switch - Neumorphism Style */}
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50/50 dark:bg-gray-700/50">
                   <div>
                     <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                       Bật thông báo khi có cơ hội bán hàng
@@ -190,18 +190,18 @@ export function NotificationSettings() {
                     }
                     disabled={saving[setting.profile_id]}
                     className={`
-                      relative inline-flex h-6 w-11 items-center rounded-full transition-colors
+                      relative inline-flex h-7 w-12 items-center rounded-full transition-all shadow-soft-out
                       ${
                         setting.notify_on_sales_opportunity
-                          ? "bg-emerald-600"
+                          ? "bg-emerald-500"
                           : "bg-slate-300 dark:bg-gray-600"
                       }
-                      ${saving[setting.profile_id] ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
+                      ${saving[setting.profile_id] ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:shadow-soft-button-pressed active:shadow-soft-button-pressed"}
                     `}
                   >
                     <span
                       className={`
-                        inline-block h-4 w-4 transform rounded-full bg-white transition-transform
+                        inline-block h-5 w-5 transform rounded-full bg-white transition-transform shadow-md
                         ${
                           setting.notify_on_sales_opportunity
                             ? "translate-x-6"
@@ -218,13 +218,13 @@ export function NotificationSettings() {
       )}
 
       {/* Info Box */}
-      <div className="neu-card rounded-lg p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+      <div className="neu-card rounded-3xl p-6 bg-blue-50/50 dark:bg-blue-900/20 border-0 shadow-soft-out">
         <div className="flex items-start gap-3">
           <div className="flex-shrink-0 mt-0.5">
             <CheckCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />
           </div>
           <div className="text-sm text-blue-800 dark:text-blue-300">
-            <p className="font-medium mb-1">Hướng dẫn lấy Telegram Chat ID:</p>
+            <p className="font-medium mb-2">Hướng dẫn lấy Telegram Chat ID:</p>
             <ol className="list-decimal list-inside space-y-1 text-blue-700 dark:text-blue-400">
               <li>Mở Telegram và tìm @userinfobot</li>
               <li>Bắt đầu cuộc trò chuyện và gửi /start</li>
