@@ -52,9 +52,9 @@ export function FeedContent({
     }
   }, [categories.length]);
 
-  const loadPosts = useCallback(async (category?: string | null) => {
+  const loadPosts = useCallback(async (category?: string | null, salesOpportunityOnly?: boolean) => {
     setLoading(true);
-    const result = await getFeedPosts(category);
+    const result = await getFeedPosts(category, salesOpportunityOnly);
     if (result.error) {
       toast.error(result.error);
     } else {
@@ -74,7 +74,7 @@ export function FeedContent({
       toast.error(result.error);
     } else {
       toast.success(t("syncSuccess", { count: result.postsCreated }));
-      loadPosts(selectedCategory);
+      loadPosts(selectedCategory, salesOpportunityOnly);
       router.refresh();
     }
     setSyncing(false);
@@ -87,7 +87,7 @@ export function FeedContent({
       toast.error(result.error);
     } else {
       toast.success(t("syncSuccess", { count: result.postsCreated }));
-      loadPosts(selectedCategory);
+      loadPosts(selectedCategory, salesOpportunityOnly);
       router.refresh();
     }
     setSyncingCategory(null);
@@ -142,7 +142,7 @@ export function FeedContent({
   };
 
   const handleRefresh = () => {
-    loadPosts(selectedCategory);
+    loadPosts(selectedCategory, salesOpportunityOnly);
   };
 
   // Format date for display
