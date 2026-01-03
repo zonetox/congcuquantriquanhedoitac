@@ -310,9 +310,10 @@ export async function saveScrapedPosts(
         }
       }
 
-      // Tự động phân tích với AI nếu có content và post mới được tạo
+      // Tự động phân tích với AI nếu có content
       // SHARED SCRAPING: Chỉ phân tích nếu chưa có AI analysis (tiết kiệm chi phí)
-      if (postId && post.text && post.text.trim().length > 0 && !existingPost) {
+      // Phân tích cả post mới và post đã tồn tại nhưng chưa có AI analysis
+      if (postId && post.text && post.text.trim().length > 0) {
         // Check xem post đã có AI analysis chưa (có thể từ user khác đã phân tích)
         const { data: existingPostData } = await supabase
           .from("profile_posts")
@@ -321,26 +322,37 @@ export async function saveScrapedPosts(
           .single();
 
         // Chỉ phân tích nếu chưa có AI analysis
-        if (!existingPostData?.ai_analysis) {
-          const aiResult = await analyzePostWithAI(post.text, undefined, postId);
-          if (aiResult.data) {
-          // Update post với AI analysis (shared cho tất cả users)
-          // AI Radar: Lưu intent và reason (Contextual Prompting)
-          await supabase
-            .from("profile_posts")
-            .update({
-              ai_analysis: {
-                summary: aiResult.data.summary,
-                signal: aiResult.data.signal,
-                opportunity_score: aiResult.data.opportunity_score,
-                intent_score: aiResult.data.intent_score,
-                intent: aiResult.data.intent, // AI Radar: Hot Lead, Warm Lead, Information, Neutral
-                reason: aiResult.data.reason, // AI Radar: Giải thích ngắn gọn
-                keywords: aiResult.data.keywords, // Deprecated - giữ lại để tương thích
-              },
-              ai_suggestions: aiResult.data.ice_breakers,
-            })
-            .eq("id", postId);
+        if (!existingPostData?.ai_analysis || typeof existingPostData.ai_analysis !== "object") {
+          try {
+            const aiResult = await analyzePostWithAI(post.text, undefined, postId);
+            if (aiResult.data) {
+              // Update post với AI analysis (shared cho tất cả users)
+              // Format JSON theo System Context: summary, signal, opportunity_score, intent, intent_score, reason, keywords
+              await supabase
+                .from("profile_posts")
+                .update({
+                  ai_analysis: {
+                    summary: aiResult.data.summary || "Chưa có tóm tắt",
+                    signal: aiResult.data.signal || "Khác",
+                    opportunity_score: aiResult.data.opportunity_score || 0,
+                    intent: aiResult.data.intent || "Neutral", // AI Radar: Hot Lead, Warm Lead, Information, Neutral
+                    intent_score: aiResult.data.intent_score || 0, // AI Radar: Độ nóng của cơ hội (1-100)
+                    reason: aiResult.data.reason || "Không có giải thích", // AI Radar: Giải thích ngắn gọn
+                    keywords: Array.isArray(aiResult.data.keywords) ? aiResult.data.keywords : [], // Deprecated - giữ lại để tương thích
+                  },
+                  ai_suggestions: Array.isArray(aiResult.data.ice_breakers) ? aiResult.data.ice_breakers : [],
+                })
+                .eq("id", postId);
+            } else if (aiResult.error && process.env.NODE_ENV === "development") {
+              // Log error nhưng không block việc lưu post
+              console.warn(`[saveScrapedPosts] AI analysis failed for post ${postId}: ${aiResult.error}`);
+            }
+          } catch (aiError: any) {
+            // Nếu AI fail, post vẫn được lưu (không có AI data)
+            if (process.env.NODE_ENV === "development") {
+              console.error(`[saveScrapedPosts] Error analyzing post ${postId}:`, aiError);
+            }
+            // Không push error vào errors array vì post vẫn được lưu thành công
           }
         }
       }
