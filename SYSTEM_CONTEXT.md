@@ -328,14 +328,16 @@ CREATE TABLE public.profile_posts (
 - ✅ **Scraping Shared**: Mỗi profile chỉ được scrape 1 lần/giờ, tất cả users cùng chia sẻ dữ liệu
 - ✅ **User Interactions**: Trạng thái riêng của mỗi user (đã đọc, đã ẩn) được lưu trong bảng `user_post_interactions`
 
-**Cấu trúc JSON cho `ai_analysis` (Module 2B + Scraper Engine v2 + AI Intent v2)**:
+**Cấu trúc JSON cho `ai_analysis` (Module 2B + Scraper Engine v2 + AI Radar v2)**:
 ```json
 {
   "summary": "Tóm tắt bài đăng dưới 15 từ",
   "signal": "Cơ hội bán hàng" | "Tin cá nhân" | "Tin thị trường" | "Khác",
   "opportunity_score": 0-10,  // Nhiệt năng cơ hội (chỉ áp dụng khi signal = "Cơ hội bán hàng")
-  "intent_score": 1-100,  // Ý định mua hàng (đa ngôn ngữ) - AI Intent v2
-  "keywords": ["tìm đối tác", "báo giá", "cần tư vấn"]  // Từ khóa phát hiện
+  "intent": "Hot Lead" | "Warm Lead" | "Information" | "Neutral",  // AI Radar: Phân loại ý định (đa ngôn ngữ)
+  "intent_score": 1-100,  // AI Radar: Độ nóng của cơ hội (1-100, đa ngôn ngữ)
+  "reason": "Giải thích ngắn gọn tại sao",  // AI Radar: Lý do phân loại (bằng ngôn ngữ của người dùng)
+  "keywords": ["tìm đối tác", "báo giá", "cần tư vấn"]  // Từ khóa phát hiện (deprecated - dùng Contextual Prompting)
 }
 ```
 
@@ -449,8 +451,13 @@ Partner Relationship Management/
 │   ├── categories/               # ✅ Category management
 │   │   └── actions.ts            # Server actions: getCategories, createCategory, updateCategory, deleteCategory
 │   ├── feed/                     # ✅ Newsfeed management (Newsfeed v2A)
-│   │   ├── actions.ts            # Server actions: getFeedPosts, syncFeed
+│   │   ├── actions.ts            # Server actions: getFeedPosts, syncFeed, syncFeedByCategory
 │   │   └── types.ts              # Types cho FeedPost
+│   ├── profiles/                 # Profile management
+│   │   ├── actions.ts            # Server actions: addProfile, deleteProfile, getProfiles
+│   │   ├── admin-actions.ts     # ✅ Admin actions: getAllProfiles (Admin only)
+│   │   ├── contact-actions.ts   # ✅ Interaction Clock: updateLastContactedAt
+│   │   └── types.ts              # TypeScript types cho Profile
 │   ├── api-keys/                 # ✅ API Key management (Newsfeed v2A)
 │   │   └── actions.ts            # Server actions: getAllApiKeys, bulkImportApiKeys, toggleApiKeyStatus, deleteApiKey
 │   ├── scrapers/                 # ✅ API Scraper utilities (Newsfeed v2A)
@@ -745,6 +752,88 @@ const result = await addProfile({
 - Function này bypass RLS bằng cách dùng Admin Client
 - CHỈ được gọi sau khi đã verify user là admin
 - Không expose ra client-side
+
+### 3. Feed Actions (`lib/feed/actions.ts`) ✅ Newsfeed Management
+
+**Functions**:
+
+#### `getFeedPosts(category?, salesOpportunityOnly?)`
+
+**Mục đích**: Lấy tất cả posts từ profiles được bật `is_in_feed = true`
+
+**Parameters**:
+- `category` (string | null, optional): Filter theo category (null = tất cả)
+- `salesOpportunityOnly` (boolean, optional): Chỉ lấy posts có `intent_score > 70` (Cơ hội bán hàng)
+
+**Logic**:
+1. ✅ Kiểm tra authentication (phải có user)
+2. ✅ Query profiles có `is_in_feed = true` và `user_id = current_user.id`
+3. ✅ Filter theo category nếu có
+4. ✅ Query posts từ shared pool (không còn filter theo `user_id` trong `profile_posts` - Shared Scraping)
+5. ✅ Transform data để include `profile_title`, `profile_url`, `profile_category`, `profile_last_contacted_at`
+6. ✅ Filter theo `intent_score > 70` nếu `salesOpportunityOnly = true`
+
+**Return**:
+```typescript
+{
+  data: Array<ProfilePost & { 
+    profile_title: string; 
+    profile_url: string; 
+    profile_category: string | null; 
+    profile_last_contacted_at: string | null 
+  }> | null;
+  error: string | null;
+}
+```
+
+**Shared Scraping**:
+- Posts được chia sẻ cho tất cả users (không còn `user_id` trong `profile_posts`)
+- Query posts từ `profile_posts` với `profile_id IN (user's tracked profiles)`
+- Include `last_contacted_at` từ `profiles_tracked` để hiển thị Interaction Clock badge
+
+#### `syncFeed()` và `syncFeedByCategory(category)`
+
+**Mục đích**: Sync posts từ profiles được bật `is_in_feed = true`
+
+**Shared Scraping Logic**:
+- Chỉ sync profiles chưa được sync trong 1 giờ qua (`last_synced_at < 1 hour ago`)
+- Nếu profile đã được sync gần đây, skip (tiết kiệm API calls)
+- Cập nhật `last_synced_at` sau khi sync thành công
+
+**AI Analysis**:
+- Tự động phân tích với AI nếu có content
+- Check xem post đã có AI analysis chưa (Shared AI Analysis - tiết kiệm chi phí)
+- Nếu đã có, dùng kết quả có sẵn
+- Nếu chưa có, gọi `analyzePostWithAI()` và lưu kết quả
+
+### 4. Interaction Clock Actions (`lib/profiles/contact-actions.ts`) ✅ MỚI
+
+**Functions**:
+
+#### `updateLastContactedAt(profileId)`
+
+**Mục đích**: Cập nhật `last_contacted_at` khi user click Ice Breaker hoặc Copy suggestion
+
+**Parameters**:
+- `profileId` (string, required): ID của profile cần cập nhật
+
+**Logic**:
+1. ✅ Kiểm tra authentication (phải có user)
+2. ✅ Verify profile thuộc về user (`user_id = current_user.id`)
+3. ✅ Update `last_contacted_at = NOW()` trong `profiles_tracked`
+
+**Return**:
+```typescript
+{
+  success: boolean;
+  error: string | null;
+}
+```
+
+**Usage**:
+- Được gọi từ `FeedContent` khi user click "Ice Breaker" hoặc "Copy" suggestion
+- Tự động cập nhật `last_contacted_at` để track thời gian liên hệ cuối cùng
+- UI Badge: Hiển thị "Cần chăm sóc" (màu đỏ) nếu `NOW() - last_contacted_at > 7 days`
 
 ---
 
@@ -1141,17 +1230,26 @@ const result = await addProfile({
 
 **Function chính**:
 
-#### `analyzePostWithAI(content: string): Promise<{data: AIAnalysisResult | null, error: string | null}>`
-- **Input**: Nội dung bài đăng (string)
+#### `analyzePostWithAI(content: string, userId?: string, postId?: string): Promise<{data: AIAnalysisResult | null, error: string | null}>`
+- **Input**: 
+  - `content`: Nội dung bài đăng (string)
+  - `userId`: (Optional) User ID (deprecated - Shared Scraping)
+  - `postId`: (Optional) Post ID để check xem đã có AI analysis chưa (Shared Scraping - tiết kiệm chi phí)
 - **Output**: 
   - `summary`: Tóm tắt bài đăng (< 15 từ, tiếng Việt)
   - `signal`: Sales Signal (tiếng Việt)
+  - `intent`: Intent classification (Hot Lead, Warm Lead, Information, Neutral) - AI Radar v2
+  - `intent_score`: Độ nóng cơ hội (1-100) - AI Radar v2
+  - `reason`: Giải thích ngắn gọn tại sao (bằng ngôn ngữ của người dùng) - AI Radar v2
+  - `opportunity_score`: Nhiệt năng cơ hội (1-10)
+  - `keywords`: Từ khóa phát hiện (deprecated)
   - `ice_breakers`: Array 3 câu phản hồi (tiếng Việt)
 - **Model**: `gpt-4o-mini` (tiết kiệm chi phí)
 - **Temperature**: 0.7
 - **Max Tokens**: 500
 - **Response Format**: JSON Object
 - **Library**: Sử dụng thư viện `openai` (npm install openai)
+- **Shared Scraping**: Nếu `postId` được truyền và post đã có AI analysis, return kết quả có sẵn (tiết kiệm 100% chi phí AI)
 
 **Sales Signals** (tiếng Việt):
 - `"Cơ hội bán hàng"`: Bài đăng có nhu cầu mua hàng hoặc cơ hội bán hàng
@@ -1180,6 +1278,11 @@ const result = await addProfile({
 interface AIAnalysisResult {
   summary: string; // Tóm tắt < 15 từ (tiếng Việt)
   signal: "Cơ hội bán hàng" | "Tin cá nhân" | "Tin thị trường" | "Khác";
+  opportunity_score: number; // Nhiệt năng cơ hội từ 1-10
+  intent: "Hot Lead" | "Warm Lead" | "Information" | "Neutral"; // AI Radar v2: Intent classification (đa ngôn ngữ)
+  intent_score: number; // AI Radar v2: Ý định mua hàng từ 1-100 (độ nóng của cơ hội, đa ngôn ngữ)
+  reason: string; // AI Radar v2: Giải thích ngắn gọn tại sao (bằng ngôn ngữ của người dùng)
+  keywords: string[]; // Từ khóa phát hiện (deprecated - dùng Contextual Prompting)
   ice_breakers: string[]; // Array 3 câu phản hồi (tiếng Việt)
 }
 ```
@@ -1215,36 +1318,47 @@ interface AIAnalysisResult {
 Bạn là một chuyên gia phân tích bán hàng. Luôn trả về JSON hợp lệ.
 ```
 
-**User Prompt Template** (tiếng Việt):
+**AI Radar v2 - Contextual Prompting** (đa ngôn ngữ):
 ```
-Bạn là một chuyên gia phân tích bán hàng. Hãy đọc bài đăng sau và trả về định dạng JSON gồm:
+Bạn là một chuyên gia săn tin bán hàng (Sales Intelligence) đa ngôn ngữ. 
+Nhiệm vụ: Phân tích bài đăng bằng bất kỳ ngôn ngữ nào (Việt, Anh, Nhật, Trung, Tây Ban Nha, Pháp, Đức, v.v.) và trả về:
+1. Intent: (Hot Lead, Warm Lead, Information, Neutral)
+2. Score: 1-100 (Độ nóng của cơ hội)
+3. Reason: Giải thích ngắn gọn tại sao (bằng ngôn ngữ của người dùng app).
 
-summary: Tóm tắt bài đăng dưới 15 từ.
+Tiêu chí "Hot Lead":
+- Ngôn ngữ bất kỳ thể hiện việc: Tìm kiếm báo giá, tìm nhà cung cấp, hỏi địa chỉ mua, cần tư vấn gấp.
+- Than phiền về lỗi nghiêm trọng của đối thủ cạnh tranh.
+- Thể hiện nhu cầu cấp thiết, muốn mua ngay, có ngân sách sẵn sàng.
 
-signal: Phân loại vào 1 trong 4 nhóm: 'Cơ hội bán hàng', 'Tin cá nhân', 'Tin thị trường', 'Khác'.
+Tiêu chí "Warm Lead":
+- Có dấu hiệu quan tâm đến sản phẩm/dịch vụ nhưng chưa cấp thiết.
+- Đang tìm hiểu, so sánh các lựa chọn.
+- Có nhu cầu trong tương lai gần.
 
-ice_breakers: Gợi ý 3 câu phản hồi: 1 câu comment, 1 câu inbox, 1 câu hỏi mở.
+Tiêu chí "Information":
+- Chia sẻ thông tin, kiến thức, không có ý định mua.
+- Cập nhật tin tức, xu hướng ngành.
 
-Post content:
-{content}
+Tiêu chí "Neutral":
+- Bài đăng thông thường, không liên quan đến bán hàng.
+- Tin cá nhân, sự kiện, không có giá trị thương mại.
+```
 
-Respond in JSON format:
+**Response Format**:
+```json
 {
-  "summary": "One-line summary under 15 words",
-  "signal": "sales_opportunity" | "personal_update" | "market_news" | "other",
-  "suggestions": [
-    {
-      "type": "public_comment",
-      "text": "Public comment suggestion"
-    },
-    {
-      "type": "private_message",
-      "text": "Private message suggestion"
-    },
-    {
-      "type": "engaging_question",
-      "text": "Engaging question suggestion"
-    }
+  "summary": "Tóm tắt bài đăng dưới 15 từ",
+  "signal": "Cơ hội bán hàng" | "Tin cá nhân" | "Tin thị trường" | "Khác",
+  "intent": "Hot Lead" | "Warm Lead" | "Information" | "Neutral",
+  "intent_score": 1-100,
+  "reason": "Giải thích ngắn gọn tại sao",
+  "opportunity_score": 1-10,
+  "keywords": ["từ khóa 1", "từ khóa 2"],
+  "ice_breakers": [
+    "Câu comment công khai",
+    "Câu tin nhắn riêng tư",
+    "Câu hỏi mở để bắt đầu cuộc trò chuyện"
   ]
 }
 ```
@@ -1769,9 +1883,45 @@ Trước khi commit code, đảm bảo:
 
 ---
 
-**📅 Last Updated**: 2024-12-20
-**Version**: 3.3.0 (Module 3 - Smart Trigger / Telegram Notifications)
+**📅 Last Updated**: 2025-01-02
+**Version**: 4.2.0 (AI Radar v2 + Interaction Clock + Sales Opportunity Filter)
 **Maintained by**: Development Team
+
+**🔄 Recent Updates** (2025-01-02):
+
+**AI Radar v2 + Interaction Clock + Sales Opportunity Filter** (v4.2.0):
+- ✅ **AI Radar v2 (Contextual Prompting)**: Nâng cấp AI Intent đa ngôn ngữ
+  - `intent`: Phân loại ý định (Hot Lead, Warm Lead, Information, Neutral) - đa ngôn ngữ
+  - `intent_score`: Độ nóng cơ hội (1-100) - đa ngôn ngữ
+  - `reason`: Giải thích ngắn gọn tại sao (bằng ngôn ngữ của người dùng)
+  - Contextual Prompting: Không dùng keywords, dùng ngữ cảnh để phân tích
+  - Tiêu chí "Hot Lead": Tìm kiếm báo giá, tìm nhà cung cấp, hỏi địa chỉ mua, cần tư vấn gấp, than phiền về đối thủ
+  - Tiêu chí "Warm Lead": Có dấu hiệu quan tâm nhưng chưa cấp thiết, đang tìm hiểu, so sánh
+  - Tiêu chí "Information": Chia sẻ thông tin, kiến thức, không có ý định mua
+  - Tiêu chí "Neutral": Bài đăng thông thường, không liên quan đến bán hàng
+- ✅ **Interaction Clock**: Tracking thời gian liên hệ cuối cùng
+  - `last_contacted_at`: Thời gian liên hệ cuối cùng (khi user click Ice Breaker hoặc Copy)
+  - `updateLastContactedAt()`: Server action để cập nhật `last_contacted_at` khi user tương tác với post
+  - UI Badge: Hiển thị "Cần chăm sóc" (màu đỏ) nếu `NOW() - last_contacted_at > 7 days`
+  - Tự động cập nhật khi user click "Ice Breaker" hoặc "Copy" suggestion
+- ✅ **Sales Opportunity Filter**: Filter posts theo `intent_score > 70`
+  - `getFeedPosts(category?, salesOpportunityOnly?)`: Thêm parameter `salesOpportunityOnly` để filter posts có `intent_score > 70`
+  - `loadPosts(category?, salesOpportunityOnly?)`: Cập nhật function signature để nhận `salesOpportunityOnly`
+  - UI Filter Button: "Chỉ xem Cơ hội bán hàng" trong FeedContent
+  - Filter logic: Chỉ hiển thị posts có `ai_analysis.intent_score > 70`
+- ✅ **Health Score Logic Update**: Cập nhật logic (3, 7 days)
+  - Green (< 3 days interaction): Healthy relationship
+  - Yellow (3-7 days interaction): Needs attention
+  - Red (> 7 days without interaction): Critical - needs immediate interaction
+  - Health Score Badge: Hiển thị trên Post Card với icon (✓, !, ⚠)
+- ✅ **Database Schema Updates**:
+  - `profiles_tracked.last_contacted_at`: Thêm column để track thời gian liên hệ cuối cùng
+  - Index: `idx_profiles_tracked_last_contacted_at` để tối ưu query
+  - Function: `update_profile_last_contacted_at()` để cập nhật `last_contacted_at`
+- ✅ **Shared AI Analysis**: Tối ưu chi phí AI
+  - Nếu post đã có AI analysis, return kết quả có sẵn (tiết kiệm 100% chi phí AI)
+  - Check `ai_analysis` trong `profile_posts` trước khi gọi OpenAI API
+  - Logic trong `analyzePostWithAI()`: Nếu có `postId` và post đã có analysis, return ngay
 
 **🔄 Recent Updates** (2024-12-20):
 
