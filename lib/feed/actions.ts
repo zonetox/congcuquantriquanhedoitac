@@ -23,11 +23,13 @@ export interface ProfilePost {
 /**
  * Lấy tất cả posts từ profiles được bật is_in_feed = true
  * @param category - Filter theo category (null = tất cả)
- * @param salesOpportunityOnly - Chỉ lấy posts có intent_score > 70 (Cơ hội bán hàng)
+ * @param salesOpportunityOnly - Chỉ lấy posts có intent_score > 70 (Cơ hội bán hàng) - DEPRECATED: Dùng filter thay thế
+ * @param filter - Newsfeed Filter: "all" | "hotLeads" (intent_score > 70) | "marketNews" (signal = "Tin thị trường")
  */
 export async function getFeedPosts(
   category?: string | null,
-  salesOpportunityOnly?: boolean
+  salesOpportunityOnly?: boolean,
+  filter?: "all" | "hotLeads" | "marketNews"
 ): Promise<{
   data: Array<ProfilePost & { profile_title: string; profile_url: string; profile_category: string | null; profile_last_contacted_at: string | null }> | null;
   error: string | null;
@@ -112,8 +114,33 @@ export async function getFeedPosts(
     };
   });
 
-  // Filter theo intent_score > 70 nếu salesOpportunityOnly = true
-  if (salesOpportunityOnly) {
+  // Newsfeed Filter: Apply filter based on filter parameter (priority over salesOpportunityOnly)
+  if (filter === "hotLeads") {
+    // 🔥 Cơ hội nóng: intent_score > 70
+    posts = posts.filter((post) => {
+      try {
+        const aiAnalysis = post.ai_analysis;
+        if (!aiAnalysis || typeof aiAnalysis !== "object") return false;
+        const intentScore = aiAnalysis.intent_score || 0;
+        return intentScore > 70;
+      } catch (e) {
+        return false;
+      }
+    });
+  } else if (filter === "marketNews") {
+    // 📈 Tin thị trường: signal = "Tin thị trường"
+    posts = posts.filter((post) => {
+      try {
+        const aiAnalysis = post.ai_analysis;
+        if (!aiAnalysis || typeof aiAnalysis !== "object") return false;
+        const signal = aiAnalysis.signal || "";
+        return signal === "Tin thị trường" || signal === "Market News";
+      } catch (e) {
+        return false;
+      }
+    });
+  } else if (salesOpportunityOnly) {
+    // Legacy filter: intent_score > 70 (deprecated, dùng filter="hotLeads" thay thế)
     posts = posts.filter((post) => {
       try {
         const aiAnalysis = post.ai_analysis;

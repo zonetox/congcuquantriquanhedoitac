@@ -38,6 +38,7 @@ export function FeedContent({
   const [copiedSuggestionId, setCopiedSuggestionId] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [salesOpportunityOnly, setSalesOpportunityOnly] = useState(false);
+  const [feedFilter, setFeedFilter] = useState<"all" | "hotLeads" | "marketNews">("all"); // Newsfeed Filter: all, hotLeads (intent_score > 70), marketNews (signal = "Tin thị trường")
   const [categories, setCategories] = useState<Category[]>(initialCategories);
   const [healthScores, setHealthScores] = useState<Record<string, { status: "healthy" | "warning" | "critical"; color: { bg: string; text: string; border: string } }>>({});
 
@@ -52,9 +53,9 @@ export function FeedContent({
     }
   }, [categories.length]);
 
-  const loadPosts = useCallback(async (category?: string | null, salesOpportunityOnly?: boolean) => {
+  const loadPosts = useCallback(async (category?: string | null, salesOpportunityOnly?: boolean, filter?: "all" | "hotLeads" | "marketNews") => {
     setLoading(true);
-    const result = await getFeedPosts(category, salesOpportunityOnly);
+    const result = await getFeedPosts(category, salesOpportunityOnly, filter);
     if (result.error) {
       toast.error(result.error);
     } else {
@@ -64,8 +65,8 @@ export function FeedContent({
   }, []);
 
   useEffect(() => {
-    loadPosts(selectedCategory, salesOpportunityOnly);
-  }, [selectedCategory, salesOpportunityOnly, loadPosts]);
+    loadPosts(selectedCategory, salesOpportunityOnly, feedFilter);
+  }, [selectedCategory, salesOpportunityOnly, feedFilter, loadPosts]);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -74,7 +75,7 @@ export function FeedContent({
       toast.error(result.error);
     } else {
       toast.success(t("syncSuccess", { count: result.postsCreated }));
-      loadPosts(selectedCategory, salesOpportunityOnly);
+      loadPosts(selectedCategory, salesOpportunityOnly, feedFilter);
       router.refresh();
     }
     setSyncing(false);
@@ -87,7 +88,7 @@ export function FeedContent({
       toast.error(result.error);
     } else {
       toast.success(t("syncSuccess", { count: result.postsCreated }));
-      loadPosts(selectedCategory, salesOpportunityOnly);
+      loadPosts(selectedCategory, salesOpportunityOnly, feedFilter);
       router.refresh();
     }
     setSyncingCategory(null);
@@ -125,13 +126,15 @@ export function FeedContent({
     }
   };
 
-  // Helper function để parse AI analysis (format mới: {summary, signal, intent_score})
-  const parseAIAnalysis = (analysis: any): { summary: string; signal: string; intent_score?: number } | null => {
+  // Helper function để parse AI analysis (format mới: {summary, signal, intent_score, intent, reason})
+  const parseAIAnalysis = (analysis: any): { summary: string; signal: string; intent_score?: number; intent?: string; reason?: string } | null => {
     if (!analysis || typeof analysis !== "object") return null;
     return {
       summary: analysis.summary || "",
       signal: analysis.signal || "Khác",
       intent_score: typeof analysis.intent_score === "number" ? analysis.intent_score : undefined,
+      intent: analysis.intent || "Neutral",
+      reason: analysis.reason || "",
     };
   };
 
@@ -142,7 +145,7 @@ export function FeedContent({
   };
 
   const handleRefresh = () => {
-    loadPosts(selectedCategory, salesOpportunityOnly);
+    loadPosts(selectedCategory, salesOpportunityOnly, feedFilter);
   };
 
   // Format date for display
@@ -216,18 +219,46 @@ export function FeedContent({
 
         {/* Filter Bar - Neumorphism Style */}
         <div className="mt-6 space-y-4">
-          {/* Sales Opportunity Filter */}
-          <div className="flex items-center gap-3">
+          {/* Newsfeed Filter Tabs - Sales Intelligence */}
+          <div className="flex items-center gap-3 flex-wrap">
             <button
-              onClick={() => setSalesOpportunityOnly(!salesOpportunityOnly)}
+              onClick={() => {
+                setFeedFilter("all");
+                setSalesOpportunityOnly(false);
+              }}
+              className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                feedFilter === "all"
+                  ? "neu-button shadow-soft-button-pressed bg-gradient-to-r from-emerald-400 to-blue-400 text-white"
+                  : "neu-button shadow-soft-out text-slate-700 hover:shadow-soft-button"
+              }`}
+            >
+              Tất cả bài đăng
+            </button>
+            <button
+              onClick={() => {
+                setFeedFilter("hotLeads");
+                setSalesOpportunityOnly(false);
+              }}
               className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
-                salesOpportunityOnly
+                feedFilter === "hotLeads"
                   ? "neu-button shadow-soft-button-pressed bg-gradient-to-r from-red-400 to-pink-400 text-white"
                   : "neu-button shadow-soft-out text-slate-700 hover:shadow-soft-button"
               }`}
             >
-              <AlertCircle className="w-4 h-4" />
-              {t("salesOpportunityOnly")}
+              🔥 Cơ hội nóng
+            </button>
+            <button
+              onClick={() => {
+                setFeedFilter("marketNews");
+                setSalesOpportunityOnly(false);
+              }}
+              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                feedFilter === "marketNews"
+                  ? "neu-button shadow-soft-button-pressed bg-gradient-to-r from-blue-400 to-purple-400 text-white"
+                  : "neu-button shadow-soft-out text-slate-700 hover:shadow-soft-button"
+              }`}
+            >
+              📈 Tin thị trường
             </button>
           </div>
 
@@ -429,18 +460,39 @@ export function FeedContent({
                       </p>
                     </div>
                   </div>
-                  {/* Sales Signal Tag - Hiển thị nếu signal là "Cơ hội bán hàng" hoặc "Sales Opportunity" */}
+                  {/* Visual Highlighting: Intent Score Badges */}
+                  {(() => {
+                    const analysis = parseAIAnalysis(post.ai_analysis);
+                    const intentScore = analysis?.intent_score || 0;
+                    
+                    if (intentScore > 70) {
+                      // 🔥 Hot Lead - Màu đỏ
+                      return (
+                        <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-red-500 text-white rounded-full text-xs font-semibold shadow-soft-out animate-pulse">
+                          <span>🔥</span>
+                          <span>Hot Lead</span>
+                          <span className="text-red-100">({intentScore}/100)</span>
+                        </div>
+                      );
+                    } else if (intentScore >= 40 && intentScore <= 70) {
+                      // ⚡ Tiềm năng - Màu vàng
+                      return (
+                        <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-yellow-500 text-yellow-900 rounded-full text-xs font-semibold shadow-soft-out">
+                          <span>⚡</span>
+                          <span>Tiềm năng</span>
+                          <span className="text-yellow-800">({intentScore}/100)</span>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                  {/* Sales Signal Tag - Hiển thị nếu signal là "Cơ hội bán hàng" */}
                   {(parseAIAnalysis(post.ai_analysis)?.signal === "Cơ hội bán hàng" || 
                     parseAIAnalysis(post.ai_analysis)?.signal === "Sales Opportunity") && (
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full text-xs font-semibold shadow-soft-out">
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full text-xs font-semibold shadow-soft-out ml-2">
                       <AlertCircle className="w-4 h-4 text-red-600" />
                       <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
                       {t("salesOpportunity")}
-                      {parseAIAnalysis(post.ai_analysis)?.intent_score && (
-                        <span className="ml-1">
-                          (Intent: {parseAIAnalysis(post.ai_analysis)?.intent_score}/100)
-                        </span>
-                      )}
                     </div>
                   )}
                 </div>
@@ -453,6 +505,21 @@ export function FeedContent({
                     <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
                       {post.content}
                     </p>
+                  </div>
+                )}
+
+                {/* AI Reason - Lý do AI chọn (Visual Highlighting) */}
+                {post.ai_analysis && parseAIAnalysis(post.ai_analysis)?.reason && (
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 border-l-4 border-blue-400 shadow-soft-in">
+                    <div className="flex items-start gap-2">
+                      <Lightbulb className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-xs font-semibold text-blue-900 mb-1">Lý do AI chọn:</p>
+                        <p className="text-sm text-blue-800">
+                          {parseAIAnalysis(post.ai_analysis)?.reason}
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -516,7 +583,23 @@ export function FeedContent({
               )}
 
               {/* Post Footer - Neumorphism Style */}
-              <div className="flex items-center gap-3 mt-4 pt-4 border-t border-slate-200">
+              <div className="flex items-center gap-3 mt-4 pt-4 border-t border-slate-200 flex-wrap">
+                {/* Quick CRM: Copy Ice Breaker Button */}
+                {post.ai_suggestions && parseAISuggestions(post.ai_suggestions).length > 0 && (
+                  <button
+                    onClick={() => {
+                      const firstSuggestion = parseAISuggestions(post.ai_suggestions)[0];
+                      if (firstSuggestion) {
+                        handleCopySuggestion(firstSuggestion, `${post.id}-quick`, post.profile_id);
+                      }
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 neu-button bg-gradient-to-r from-purple-400 to-pink-400 text-white rounded-lg shadow-soft-button hover:shadow-soft-button-pressed active:shadow-soft-button-pressed transition-all font-medium text-sm"
+                    title="Copy Ice Breaker đầu tiên để săn khách ngay"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    Copy Ice Breaker
+                  </button>
+                )}
                 {post.post_url && (
                   <>
                     <a
