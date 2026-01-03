@@ -35,6 +35,7 @@ function detectPlatform(url: string): "facebook" | "linkedin" | "twitter" | "unk
 
 /**
  * Map RapidAPI response vào ScrapedPost format
+ * Module 4.4: Hỗ trợ nhiều format response từ các RapidAPI providers khác nhau
  */
 function mapRapidAPIResponse(apiResponse: any, platform: string): ScrapedPost[] {
   const posts: ScrapedPost[] = [];
@@ -42,14 +43,39 @@ function mapRapidAPIResponse(apiResponse: any, platform: string): ScrapedPost[] 
   try {
     // Format response khác nhau tùy platform
     if (platform === "facebook") {
-      // Facebook Public Page Scraper format
+      // Facebook Public Page Scraper format (facebook-scraper3.p.rapidapi.com)
+      // Có thể có nhiều format khác nhau tùy API provider
+      
+      // Format 1: { data: [...] }
       if (apiResponse.data && Array.isArray(apiResponse.data)) {
         apiResponse.data.forEach((post: any) => {
           posts.push({
-            text: post.message || post.text || post.content || "",
-            image: post.image || post.picture || null,
-            link: post.permalink_url || post.link || post.url || "",
-            timestamp: post.created_time || post.timestamp || new Date().toISOString(),
+            text: post.message || post.text || post.content || post.description || "",
+            image: post.image || post.picture || post.full_picture || null,
+            link: post.permalink_url || post.link || post.url || post.id ? `https://www.facebook.com/${post.id}` : "",
+            timestamp: post.created_time || post.timestamp || post.created_at || new Date().toISOString(),
+          });
+        });
+      }
+      // Format 2: { posts: [...] }
+      else if (apiResponse.posts && Array.isArray(apiResponse.posts)) {
+        apiResponse.posts.forEach((post: any) => {
+          posts.push({
+            text: post.message || post.text || post.content || post.description || "",
+            image: post.image || post.picture || post.full_picture || null,
+            link: post.permalink_url || post.link || post.url || post.id ? `https://www.facebook.com/${post.id}` : "",
+            timestamp: post.created_time || post.timestamp || post.created_at || new Date().toISOString(),
+          });
+        });
+      }
+      // Format 3: Array trực tiếp
+      else if (Array.isArray(apiResponse)) {
+        apiResponse.forEach((post: any) => {
+          posts.push({
+            text: post.message || post.text || post.content || post.description || "",
+            image: post.image || post.picture || post.full_picture || null,
+            link: post.permalink_url || post.link || post.url || post.id ? `https://www.facebook.com/${post.id}` : "",
+            timestamp: post.created_time || post.timestamp || post.created_at || new Date().toISOString(),
           });
         });
       }
@@ -88,70 +114,82 @@ function mapRapidAPIResponse(apiResponse: any, platform: string): ScrapedPost[] 
 }
 
 /**
- * Fetch latest posts từ profile URL sử dụng RapidAPI
+ * Fetch social posts từ URL sử dụng RapidAPI Facebook Public Page Scraper
+ * Module 4.4: Scraper Engine thực tế với Shared Logic
+ * 
+ * @param url - Facebook Page URL (e.g., https://www.facebook.com/PageName)
+ * @returns ScrapedPost[] hoặc error
  */
-export async function fetchLatestPosts(
-  profileUrl: string,
-  platform?: string
+export async function fetchSocialPosts(
+  url: string
 ): Promise<{
   data: ScrapedPost[] | null;
   error: string | null;
 }> {
-  const detectedPlatform = platform || detectPlatform(profileUrl);
-
-  if (detectedPlatform === "unknown") {
-    return {
-      data: null,
-      error: "Unsupported platform. Supported: Facebook, LinkedIn, Twitter.",
-    };
-  }
-
   try {
-    // RapidAPI endpoints (cần cấu hình trong api_key_pool)
-    const apiEndpoints: Record<string, { url: string; provider: string }> = {
+    // Detect platform từ URL
+    const platform = detectPlatform(url);
+    
+    if (platform === "unknown") {
+      return {
+        data: null,
+        error: "Unsupported platform. Supported: Facebook, LinkedIn, Twitter.",
+      };
+    }
+
+    // RapidAPI endpoints configuration
+    // Provider trong api_key_pool nên là "RapidAPI"
+    // Host sẽ được truyền vào fetchWithRotation
+    const apiEndpoints: Record<string, { url: string; host: string; params: Record<string, string> }> = {
       facebook: {
-        url: "https://facebook-scraper-api.p.rapidapi.com/v1/page-posts",
-        provider: "facebook-scraper-api.p.rapidapi.com",
+        url: "https://facebook-scraper3.p.rapidapi.com/page/posts",
+        host: "facebook-scraper3.p.rapidapi.com",
+        params: {
+          url: url,
+          limit: "10",
+        },
       },
       linkedin: {
         url: "https://linkedin-api8.p.rapidapi.com/v1/posts",
-        provider: "linkedin-api8.p.rapidapi.com",
+        host: "linkedin-api8.p.rapidapi.com",
+        params: {
+          profile_url: url,
+          limit: "10",
+        },
       },
       twitter: {
         url: "https://twitter-api45.p.rapidapi.com/v1/timeline",
-        provider: "twitter-api45.p.rapidapi.com",
+        host: "twitter-api45.p.rapidapi.com",
+        params: {
+          username: new URL(url).pathname.split("/").pop() || "",
+          limit: "10",
+        },
       },
     };
 
-    const endpoint = apiEndpoints[detectedPlatform];
+    const endpoint = apiEndpoints[platform];
     if (!endpoint) {
       return {
         data: null,
-        error: `No API endpoint configured for platform: ${detectedPlatform}`,
+        error: `No API endpoint configured for platform: ${platform}`,
       };
     }
 
     // Build API URL với query params
     const apiUrl = new URL(endpoint.url);
-    if (detectedPlatform === "facebook") {
-      apiUrl.searchParams.set("url", profileUrl);
-      apiUrl.searchParams.set("limit", "10");
-    } else if (detectedPlatform === "linkedin") {
-      apiUrl.searchParams.set("profile_url", profileUrl);
-      apiUrl.searchParams.set("limit", "10");
-    } else if (detectedPlatform === "twitter") {
-      apiUrl.searchParams.set("username", new URL(profileUrl).pathname.split("/").pop() || "");
-      apiUrl.searchParams.set("limit", "10");
-    }
+    Object.entries(endpoint.params).forEach(([key, value]) => {
+      apiUrl.searchParams.set(key, value);
+    });
 
-    // Fetch với rotation
+    // Fetch với rotation (provider = "RapidAPI", host = endpoint.host)
     const result = await fetchWithRotation(
-      endpoint.provider,
+      "RapidAPI", // Provider name trong api_key_pool
       apiUrl.toString(),
       {
         method: "GET",
       },
-      3
+      3, // maxRetries
+      endpoint.host // RapidAPI Host
     );
 
     if (result.error || !result.data) {
@@ -162,7 +200,7 @@ export async function fetchLatestPosts(
     }
 
     // Map response
-    const posts = mapRapidAPIResponse(result.data, detectedPlatform);
+    const posts = mapRapidAPIResponse(result.data, platform);
 
     return {
       data: posts,
@@ -170,13 +208,28 @@ export async function fetchLatestPosts(
     };
   } catch (error: any) {
     if (process.env.NODE_ENV === "development") {
-      console.error("[fetchLatestPosts] Error:", error);
+      console.error("[fetchSocialPosts] Error:", error);
     }
     return {
       data: null,
       error: error.message || "Failed to fetch posts",
     };
   }
+}
+
+/**
+ * Fetch latest posts từ profile URL sử dụng RapidAPI
+ * @deprecated - Dùng fetchSocialPosts() thay thế (Module 4.4)
+ */
+export async function fetchLatestPosts(
+  profileUrl: string,
+  platform?: string
+): Promise<{
+  data: ScrapedPost[] | null;
+  error: string | null;
+}> {
+  // Delegate to fetchSocialPosts
+  return fetchSocialPosts(profileUrl);
 }
 
 /**

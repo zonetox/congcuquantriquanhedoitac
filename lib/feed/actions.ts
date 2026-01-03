@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { analyzePostWithAI } from "@/lib/ai/analyzer";
 import { checkAndNotify } from "@/lib/notifications/actions";
-import { fetchLatestPosts, saveScrapedPosts } from "@/lib/scrapers/social-scraper";
+import { fetchSocialPosts, saveScrapedPosts } from "@/lib/scrapers/social-scraper";
 
 export interface ProfilePost {
   id: string;
@@ -201,8 +201,8 @@ export async function syncFeed(): Promise<{
     // Fetch posts từ mỗi profile cần sync
     for (const profile of profilesToSync) {
       try {
-        // Fetch latest posts từ scraper
-        const scrapedResult = await fetchLatestPosts(profile.url);
+        // Fetch latest posts từ scraper (Module 4.4: Scraper Engine thực tế)
+        const scrapedResult = await fetchSocialPosts(profile.url);
         
         if (scrapedResult.error || !scrapedResult.data || scrapedResult.data.length === 0) {
           if (scrapedResult.error) {
@@ -495,8 +495,8 @@ export async function syncFeedByCategory(
     // Fetch posts từ mỗi profile cần sync
     for (const profile of profilesToSync) {
       try {
-        // Fetch latest posts từ scraper
-        const scrapedResult = await fetchLatestPosts(profile.url);
+        // Fetch latest posts từ scraper (Module 4.4: Scraper Engine thực tế)
+        const scrapedResult = await fetchSocialPosts(profile.url);
         
         if (scrapedResult.error || !scrapedResult.data || scrapedResult.data.length === 0) {
           if (scrapedResult.error) {

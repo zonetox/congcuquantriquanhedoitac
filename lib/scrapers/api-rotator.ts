@@ -91,12 +91,19 @@ async function updateKeyUsage(keyId: string): Promise<void> {
 /**
  * Fetch với API rotation tự động
  * Nếu gặp lỗi 429 (Rate Limit), tự động đổi sang key khác và thử lại
+ * 
+ * @param provider - Provider name (e.g., "RapidAPI") hoặc RapidAPI Host (e.g., "facebook-scraper3.p.rapidapi.com")
+ * @param url - API endpoint URL
+ * @param options - Fetch options
+ * @param maxRetries - Số lần retry tối đa
+ * @param rapidApiHost - (Optional) RapidAPI Host name nếu provider là "RapidAPI"
  */
 export async function fetchWithRotation(
   provider: string,
   url: string,
   options: RequestInit = {},
-  maxRetries: number = 3
+  maxRetries: number = 3,
+  rapidApiHost?: string
 ): Promise<{
   data: any;
   error: string | null;
@@ -106,9 +113,15 @@ export async function fetchWithRotation(
   let lastError: string | null = null;
   let usedKeyId: string | null = null;
 
+  // Xác định provider để query keys
+  // Nếu provider là RapidAPI host (có .rapidapi.com), dùng provider đó
+  // Nếu không, query với provider name (e.g., "RapidAPI")
+  const providerForQuery = provider.includes(".rapidapi.com") ? "RapidAPI" : provider;
+  const hostForHeaders = rapidApiHost || (provider.includes(".rapidapi.com") ? provider : undefined);
+
   while (retries < maxRetries) {
-    // Lấy key hợp lệ
-    const { key, error: keyError } = await getValidKey(provider);
+    // Lấy key hợp lệ từ database
+    const { key, error: keyError } = await getValidKey(providerForQuery);
     
     if (keyError || !key) {
       return {
@@ -120,10 +133,16 @@ export async function fetchWithRotation(
 
     usedKeyId = key.id;
 
-    // Thêm API key vào headers
+    // Thêm API key vào headers (RapidAPI format)
     const headers = new Headers(options.headers);
     headers.set("X-RapidAPI-Key", key.api_key);
-    headers.set("X-RapidAPI-Host", provider);
+    
+    // Set RapidAPI Host nếu có
+    if (hostForHeaders) {
+      headers.set("X-RapidAPI-Host", hostForHeaders);
+    } else if (provider.includes(".rapidapi.com")) {
+      headers.set("X-RapidAPI-Host", provider);
+    }
 
     try {
       const response = await fetch(url, {
