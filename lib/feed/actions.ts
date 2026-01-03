@@ -173,17 +173,36 @@ export async function syncFeed(): Promise<{
       };
     }
 
-    // SHARED DATA FLOW: Kiểm tra posts mới trong 1 giờ qua trước khi gọi API
+    // SHARED DATA FLOW: Kiểm tra last_synced_at TRƯỚC, sau đó mới check posts mới
     const oneHourAgo = new Date();
     oneHourAgo.setHours(oneHourAgo.getHours() - 1);
     const oneHourAgoISO = oneHourAgo.toISOString();
     
-    // Kiểm tra từng profile xem có posts mới trong 1 giờ qua không
+    // Kiểm tra từng profile
     const profilesToSync: typeof profiles = [];
     let totalRecentPosts = 0;
 
     for (const profile of profiles) {
-      // Kiểm tra xem có posts mới trong 1 giờ qua không
+      // BƯỚC 1: Kiểm tra last_synced_at TRƯỚC
+      // Nếu last_synced_at < 1 giờ (đã sync trong 1 giờ qua), KHÔNG gọi API
+      if (profile.last_synced_at) {
+        const lastSyncedAt = new Date(profile.last_synced_at);
+        if (lastSyncedAt >= oneHourAgo) {
+          // Đã sync trong 1 giờ qua, lấy dữ liệu từ profile_posts thay vì gọi API
+          const { count: existingPostsCount } = await supabase
+            .from("profile_posts")
+            .select("*", { count: "exact", head: true })
+            .eq("profile_id", profile.id);
+
+          if (existingPostsCount && existingPostsCount > 0) {
+            totalRecentPosts += existingPostsCount;
+          }
+          // Không update last_synced_at vì đã có sẵn
+          continue; // Skip profile này, không gọi API
+        }
+      }
+
+      // BƯỚC 2: Nếu last_synced_at >= 1 giờ hoặc null, kiểm tra posts mới trong 1 giờ qua
       // Check created_at (posts được tạo trong 1 giờ qua) hoặc published_at (posts được publish trong 1 giờ qua)
       const { count: recentPostsByCreated } = await supabase
         .from("profile_posts")
@@ -204,25 +223,16 @@ export async function syncFeed(): Promise<{
       if (recentPostsCount > 0) {
         // Có posts mới trong 1 giờ qua, không cần gọi API
         totalRecentPosts += recentPostsCount;
-        // Vẫn update last_synced_at để đánh dấu đã check (nhưng không gọi API)
+        // Update last_synced_at để đánh dấu đã check (nhưng không gọi API)
         await supabase
           .from("profiles_tracked")
           .update({ last_synced_at: new Date().toISOString() })
           .eq("id", profile.id);
-        continue;
+        continue; // Skip profile này, không gọi API
       }
 
-      // Không có posts mới, kiểm tra last_synced_at
-      // Nếu chưa có last_synced_at, cần sync
-      if (!profile.last_synced_at) {
-        profilesToSync.push(profile);
-        continue;
-      }
-
-      // Nếu đã sync > 1 giờ trước, cần sync lại
-      if (new Date(profile.last_synced_at) < oneHourAgo) {
-        profilesToSync.push(profile);
-      }
+      // BƯỚC 3: Không có posts mới và last_synced_at >= 1 giờ hoặc null, cần gọi API
+      profilesToSync.push(profile);
     }
 
     if (profilesToSync.length === 0) {
@@ -512,17 +522,36 @@ export async function syncFeedByCategory(
       };
     }
 
-    // SHARED DATA FLOW: Kiểm tra posts mới trong 1 giờ qua trước khi gọi API
+    // SHARED DATA FLOW: Kiểm tra last_synced_at TRƯỚC, sau đó mới check posts mới
     const oneHourAgo = new Date();
     oneHourAgo.setHours(oneHourAgo.getHours() - 1);
     const oneHourAgoISO = oneHourAgo.toISOString();
     
-    // Kiểm tra từng profile xem có posts mới trong 1 giờ qua không
+    // Kiểm tra từng profile
     const profilesToSync: typeof profiles = [];
     let totalRecentPosts = 0;
 
     for (const profile of profiles) {
-      // Kiểm tra xem có posts mới trong 1 giờ qua không
+      // BƯỚC 1: Kiểm tra last_synced_at TRƯỚC
+      // Nếu last_synced_at < 1 giờ (đã sync trong 1 giờ qua), KHÔNG gọi API
+      if (profile.last_synced_at) {
+        const lastSyncedAt = new Date(profile.last_synced_at);
+        if (lastSyncedAt >= oneHourAgo) {
+          // Đã sync trong 1 giờ qua, lấy dữ liệu từ profile_posts thay vì gọi API
+          const { count: existingPostsCount } = await supabase
+            .from("profile_posts")
+            .select("*", { count: "exact", head: true })
+            .eq("profile_id", profile.id);
+
+          if (existingPostsCount && existingPostsCount > 0) {
+            totalRecentPosts += existingPostsCount;
+          }
+          // Không update last_synced_at vì đã có sẵn
+          continue; // Skip profile này, không gọi API
+        }
+      }
+
+      // BƯỚC 2: Nếu last_synced_at >= 1 giờ hoặc null, kiểm tra posts mới trong 1 giờ qua
       // Check created_at (posts được tạo trong 1 giờ qua) hoặc published_at (posts được publish trong 1 giờ qua)
       const { count: recentPostsByCreated } = await supabase
         .from("profile_posts")
@@ -543,25 +572,16 @@ export async function syncFeedByCategory(
       if (recentPostsCount > 0) {
         // Có posts mới trong 1 giờ qua, không cần gọi API
         totalRecentPosts += recentPostsCount;
-        // Vẫn update last_synced_at để đánh dấu đã check (nhưng không gọi API)
+        // Update last_synced_at để đánh dấu đã check (nhưng không gọi API)
         await supabase
           .from("profiles_tracked")
           .update({ last_synced_at: new Date().toISOString() })
           .eq("id", profile.id);
-        continue;
+        continue; // Skip profile này, không gọi API
       }
 
-      // Không có posts mới, kiểm tra last_synced_at
-      // Nếu chưa có last_synced_at, cần sync
-      if (!profile.last_synced_at) {
-        profilesToSync.push(profile);
-        continue;
-      }
-
-      // Nếu đã sync > 1 giờ trước, cần sync lại
-      if (new Date(profile.last_synced_at) < oneHourAgo) {
-        profilesToSync.push(profile);
-      }
+      // BƯỚC 3: Không có posts mới và last_synced_at >= 1 giờ hoặc null, cần gọi API
+      profilesToSync.push(profile);
     }
 
     if (profilesToSync.length === 0) {
