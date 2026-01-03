@@ -173,22 +173,63 @@ export async function syncFeed(): Promise<{
       };
     }
 
-    // SHARED SCRAPING: Chỉ sync profiles chưa được sync trong 1 giờ qua
+    // SHARED DATA FLOW: Kiểm tra posts mới trong 1 giờ qua trước khi gọi API
     const oneHourAgo = new Date();
     oneHourAgo.setHours(oneHourAgo.getHours() - 1);
+    const oneHourAgoISO = oneHourAgo.toISOString();
     
-    const profilesToSync = profiles.filter((profile) => {
+    // Kiểm tra từng profile xem có posts mới trong 1 giờ qua không
+    const profilesToSync: typeof profiles = [];
+    let totalRecentPosts = 0;
+
+    for (const profile of profiles) {
+      // Kiểm tra xem có posts mới trong 1 giờ qua không
+      // Check created_at (posts được tạo trong 1 giờ qua) hoặc published_at (posts được publish trong 1 giờ qua)
+      const { count: recentPostsByCreated } = await supabase
+        .from("profile_posts")
+        .select("*", { count: "exact", head: true })
+        .eq("profile_id", profile.id)
+        .gte("created_at", oneHourAgoISO);
+
+      // Check published_at cho posts có published_at mới hơn created_at
+      const { count: recentPostsByPublished } = await supabase
+        .from("profile_posts")
+        .select("*", { count: "exact", head: true })
+        .eq("profile_id", profile.id)
+        .gte("published_at", oneHourAgoISO)
+        .lt("created_at", oneHourAgoISO); // Chỉ check nếu created_at < 1 giờ (tránh đếm trùng)
+
+      const recentPostsCount = (recentPostsByCreated || 0) + (recentPostsByPublished || 0);
+
+      if (recentPostsCount > 0) {
+        // Có posts mới trong 1 giờ qua, không cần gọi API
+        totalRecentPosts += recentPostsCount;
+        // Vẫn update last_synced_at để đánh dấu đã check (nhưng không gọi API)
+        await supabase
+          .from("profiles_tracked")
+          .update({ last_synced_at: new Date().toISOString() })
+          .eq("id", profile.id);
+        continue;
+      }
+
+      // Không có posts mới, kiểm tra last_synced_at
       // Nếu chưa có last_synced_at, cần sync
-      if (!profile.last_synced_at) return true;
+      if (!profile.last_synced_at) {
+        profilesToSync.push(profile);
+        continue;
+      }
+
       // Nếu đã sync > 1 giờ trước, cần sync lại
-      return new Date(profile.last_synced_at) < oneHourAgo;
-    });
+      if (new Date(profile.last_synced_at) < oneHourAgo) {
+        profilesToSync.push(profile);
+      }
+    }
 
     if (profilesToSync.length === 0) {
-      // Tất cả profiles đã được sync gần đây, không cần gọi API
+      // Tất cả profiles đã có dữ liệu mới hoặc đã được sync gần đây, không cần gọi API
       return {
         success: true,
-        postsCreated: 0,
+        postsCreated: totalRecentPosts, // Return số posts mới đã có sẵn
         error: null,
       };
     }
@@ -234,8 +275,8 @@ export async function syncFeed(): Promise<{
       }
     }
 
-    // Nếu scraper thành công, return kết quả
-    if (totalSaved > 0) {
+    // Nếu scraper thành công hoặc có posts mới từ database, return kết quả
+    if (totalSaved > 0 || totalRecentPosts > 0) {
       // Sau khi sync xong, kiểm tra và gửi thông báo cho Sales Opportunities
       try {
         const notifyResult = await checkAndNotify();
@@ -262,7 +303,7 @@ export async function syncFeed(): Promise<{
 
       return {
         success: true,
-        postsCreated: totalSaved,
+        postsCreated: totalSaved + totalRecentPosts, // Bao gồm cả posts mới từ database
         error: finalError,
       };
     }
@@ -471,19 +512,63 @@ export async function syncFeedByCategory(
       };
     }
 
-    // SHARED SCRAPING: Chỉ sync profiles chưa được sync trong 1 giờ qua
+    // SHARED DATA FLOW: Kiểm tra posts mới trong 1 giờ qua trước khi gọi API
     const oneHourAgo = new Date();
     oneHourAgo.setHours(oneHourAgo.getHours() - 1);
+    const oneHourAgoISO = oneHourAgo.toISOString();
     
-    const profilesToSync = profiles.filter((profile) => {
-      if (!profile.last_synced_at) return true;
-      return new Date(profile.last_synced_at) < oneHourAgo;
-    });
+    // Kiểm tra từng profile xem có posts mới trong 1 giờ qua không
+    const profilesToSync: typeof profiles = [];
+    let totalRecentPosts = 0;
+
+    for (const profile of profiles) {
+      // Kiểm tra xem có posts mới trong 1 giờ qua không
+      // Check created_at (posts được tạo trong 1 giờ qua) hoặc published_at (posts được publish trong 1 giờ qua)
+      const { count: recentPostsByCreated } = await supabase
+        .from("profile_posts")
+        .select("*", { count: "exact", head: true })
+        .eq("profile_id", profile.id)
+        .gte("created_at", oneHourAgoISO);
+
+      // Check published_at cho posts có published_at mới hơn created_at
+      const { count: recentPostsByPublished } = await supabase
+        .from("profile_posts")
+        .select("*", { count: "exact", head: true })
+        .eq("profile_id", profile.id)
+        .gte("published_at", oneHourAgoISO)
+        .lt("created_at", oneHourAgoISO); // Chỉ check nếu created_at < 1 giờ (tránh đếm trùng)
+
+      const recentPostsCount = (recentPostsByCreated || 0) + (recentPostsByPublished || 0);
+
+      if (recentPostsCount > 0) {
+        // Có posts mới trong 1 giờ qua, không cần gọi API
+        totalRecentPosts += recentPostsCount;
+        // Vẫn update last_synced_at để đánh dấu đã check (nhưng không gọi API)
+        await supabase
+          .from("profiles_tracked")
+          .update({ last_synced_at: new Date().toISOString() })
+          .eq("id", profile.id);
+        continue;
+      }
+
+      // Không có posts mới, kiểm tra last_synced_at
+      // Nếu chưa có last_synced_at, cần sync
+      if (!profile.last_synced_at) {
+        profilesToSync.push(profile);
+        continue;
+      }
+
+      // Nếu đã sync > 1 giờ trước, cần sync lại
+      if (new Date(profile.last_synced_at) < oneHourAgo) {
+        profilesToSync.push(profile);
+      }
+    }
 
     if (profilesToSync.length === 0) {
+      // Tất cả profiles đã có dữ liệu mới hoặc đã được sync gần đây, không cần gọi API
       return {
         success: true,
-        postsCreated: 0,
+        postsCreated: totalRecentPosts, // Return số posts mới đã có sẵn
         error: null,
       };
     }
@@ -529,7 +614,7 @@ export async function syncFeedByCategory(
     }
 
     // Sau khi sync xong, kiểm tra và gửi thông báo cho Sales Opportunities
-    if (totalSaved > 0) {
+    if (totalSaved > 0 || totalRecentPosts > 0) {
       try {
         const notifyResult = await checkAndNotify();
         if (notifyResult.notificationsSent > 0 && process.env.NODE_ENV === "development") {
