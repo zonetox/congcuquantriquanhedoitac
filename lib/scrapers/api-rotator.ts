@@ -145,6 +145,10 @@ export async function fetchWithRotation(
     }
 
     try {
+      // 🔍 API LEAK CHECK: Log mỗi khi API được gọi thực sự
+      const timestamp = new Date().toISOString();
+      console.log(`[API CALL] ${timestamp} | Provider: ${providerForQuery} | URL: ${url} | Key ID: ${key.id}`);
+      
       const response = await fetch(url, {
         ...options,
         headers,
@@ -155,6 +159,7 @@ export async function fetchWithRotation(
         const data = await response.json();
         // Cập nhật usage
         await updateKeyUsage(key.id);
+        console.log(`[API SUCCESS] ${timestamp} | Provider: ${providerForQuery} | Key ID: ${key.id} | Status: ${response.status}`);
         return {
           data,
           error: null,
@@ -166,18 +171,31 @@ export async function fetchWithRotation(
       if (response.status === 429) {
         // Đánh dấu key này là rate_limited
         await markKeyAsRateLimited(key.id);
+        console.warn(`[API RATE LIMIT] ${timestamp} | Provider: ${providerForQuery} | Key ID: ${key.id} | Retry: ${retries + 1}/${maxRetries}`);
         lastError = `Rate limit exceeded for key ${key.id}. Trying next key...`;
         retries++;
         continue; // Thử key khác
       }
 
-      // Các lỗi khác
+      // 🔍 RESILIENCE: Xử lý lỗi cụ thể (404, 500, etc.) và log chi tiết
       const errorText = await response.text();
-      return {
-        data: null,
-        error: `HTTP ${response.status}: ${errorText}`,
-        usedKeyId: key.id,
-      };
+      const errorMessage = `HTTP ${response.status}: ${errorText.substring(0, 200)}`;
+      
+      // Log chi tiết lỗi để debugging
+      console.error(`[API ERROR] ${timestamp} | Provider: ${providerForQuery} | Key ID: ${key.id} | Status: ${response.status} | URL: ${url} | Error: ${errorText.substring(0, 200)}`);
+      
+      // Nếu là lỗi 404 hoặc 500, không retry (vì sẽ fail lại)
+      if (response.status === 404 || response.status === 500) {
+        return {
+          data: null,
+          error: errorMessage,
+          usedKeyId: key.id,
+        };
+      }
+      
+      // Các lỗi khác, có thể retry
+      lastError = errorMessage;
+      retries++;
     } catch (error: any) {
       lastError = error.message || "Network error";
       retries++;

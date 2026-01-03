@@ -4,6 +4,7 @@ import OpenAI from "openai";
 import { AIAnalysisResult } from "./types";
 import { logAIUsage } from "./monitoring";
 import { createClient } from "@/lib/supabase/server";
+import { getUserLocale } from "@/lib/user/actions";
 
 /**
  * Phân tích bài đăng với OpenAI API
@@ -74,12 +75,37 @@ export async function analyzePostWithAI(
       apiKey: apiKey,
     });
 
+    // 🔍 DATA INTEGRITY: Lấy locale của user để đảm bảo reason bằng đúng ngôn ngữ
+    let userLocale = "vi"; // Default: tiếng Việt
+    if (userId) {
+      try {
+        userLocale = await getUserLocale();
+      } catch (localeError) {
+        // Nếu không lấy được locale, dùng default
+        if (process.env.NODE_ENV === "development") {
+          console.warn("[analyzePostWithAI] Failed to get user locale, using default 'vi'");
+        }
+      }
+    }
+
+    // Map locale code sang tên ngôn ngữ
+    const localeNames: Record<string, string> = {
+      vi: "tiếng Việt",
+      en: "tiếng Anh",
+      es: "tiếng Tây Ban Nha",
+      fr: "tiếng Pháp",
+      de: "tiếng Đức",
+      ja: "tiếng Nhật",
+      zh: "tiếng Trung",
+    };
+    const languageName = localeNames[userLocale] || "tiếng Việt";
+
     // AI Radar - Contextual Prompting (không dùng keywords)
     const SALES_INTENT_PROMPT = `Bạn là một chuyên gia săn tin bán hàng (Sales Intelligence) đa ngôn ngữ. 
 Nhiệm vụ: Phân tích bài đăng bằng bất kỳ ngôn ngữ nào (Việt, Anh, Nhật, Trung, Tây Ban Nha, Pháp, Đức, v.v.) và trả về:
 1. Intent: (Hot Lead, Warm Lead, Information, Neutral)
 2. Score: 1-100 (Độ nóng của cơ hội)
-3. Reason: Giải thích ngắn gọn tại sao (bằng ngôn ngữ của người dùng app).
+3. Reason: Giải thích ngắn gọn tại sao (PHẢI bằng ${languageName}, dù bài đăng gốc là ngôn ngữ nào).
 
 Tiêu chí "Hot Lead":
 - Ngôn ngữ bất kỳ thể hiện việc: Tìm kiếm báo giá, tìm nhà cung cấp, hỏi địa chỉ mua, cần tư vấn gấp.
@@ -121,7 +147,7 @@ Trả về JSON:
   "intent": "Hot Lead" | "Warm Lead" | "Information" | "Neutral",
   "intent_score": 1-100,
   "opportunity_score": 0-10,
-  "reason": "Giải thích ngắn gọn tại sao phân loại như vậy (bằng ngôn ngữ của bài đăng)",
+  "reason": "Giải thích ngắn gọn tại sao phân loại như vậy (PHẢI bằng ${languageName}, dù bài đăng gốc là ngôn ngữ nào)",
   "ice_breakers": [
     "Câu comment công khai",
     "Câu tin nhắn riêng tư",

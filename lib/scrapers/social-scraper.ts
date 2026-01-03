@@ -181,6 +181,10 @@ export async function fetchSocialPosts(
       apiUrl.searchParams.set(key, value);
     });
 
+    // 🔍 API LEAK CHECK: Log khi fetchSocialPosts được gọi (chỉ khi thực sự gọi API)
+    const timestamp = new Date().toISOString();
+    console.log(`[SCRAPER API] ${timestamp} | Platform: ${platform} | URL: ${url} | Endpoint: ${endpoint.url}`);
+    
     // Fetch với rotation (provider = "RapidAPI", host = endpoint.host)
     const result = await fetchWithRotation(
       "RapidAPI", // Provider name trong api_key_pool
@@ -193,11 +197,14 @@ export async function fetchSocialPosts(
     );
 
     if (result.error || !result.data) {
+      console.error(`[SCRAPER API ERROR] ${timestamp} | Platform: ${platform} | URL: ${url} | Error: ${result.error}`);
       return {
         data: null,
         error: result.error || "Failed to fetch posts from API",
       };
     }
+    
+    console.log(`[SCRAPER API SUCCESS] ${timestamp} | Platform: ${platform} | URL: ${url} | Posts fetched: ${mapRapidAPIResponse(result.data, platform).length}`);
 
     // Map response
     const posts = mapRapidAPIResponse(result.data, platform);
@@ -248,7 +255,15 @@ export async function saveScrapedPosts(
   let saved = 0;
   let skipped = 0;
   const errors: string[] = [];
+  
+  // 🔍 AI QUEUE CHECK: Collect posts cần AI analysis để xử lý batch
+  interface PostNeedingAI {
+    postId: string;
+    text: string;
+  }
+  const postsNeedingAI: PostNeedingAI[] = [];
 
+  // BƯỚC 1: Lưu tất cả posts vào database (không gọi AI ngay)
   for (const post of posts) {
     try {
       // Parse timestamp
@@ -261,33 +276,65 @@ export async function saveScrapedPosts(
         publishedAt = new Date(post.timestamp).toISOString();
       }
 
-      // Check xem post đã tồn tại chưa (dựa trên post_url và profile_id)
-      let existingPost = null;
-      if (post.link) {
-        const { data: existing } = await supabase
-          .from("profile_posts")
-          .select("id")
-          .eq("profile_id", profileId)
-          .eq("post_url", post.link)
-          .maybeSingle();
-        
-        existingPost = existing;
-      }
-
+      // 🔍 DATA INTEGRITY: Sử dụng UPSERT để tránh duplicate posts (race condition safe)
+      // UNIQUE constraint trên (profile_id, post_url) đảm bảo không có duplicate
       let postId: string | null = null;
 
-      if (existingPost) {
-        // Post đã tồn tại, skip
-        skipped++;
-        postId = existingPost.id;
+      if (post.link) {
+        // UPSERT: Insert nếu chưa có, update nếu đã có (dựa trên UNIQUE constraint)
+        const { data: upsertedPost, error: upsertError } = await supabase
+          .from("profile_posts")
+          .upsert(
+            {
+              profile_id: profileId,
+              content: post.text || null,
+              post_url: post.link, // Required for UNIQUE constraint
+              image_url: post.image || null,
+              published_at: publishedAt,
+            },
+            {
+              onConflict: "profile_id,post_url", // Conflict resolution dựa trên UNIQUE constraint
+              ignoreDuplicates: false, // Update nếu đã tồn tại
+            }
+          )
+          .select()
+          .single();
+
+        if (upsertError) {
+          // Nếu lỗi do duplicate (có thể xảy ra trong race condition), skip
+          if (upsertError.code === "23505" || upsertError.message?.includes("duplicate")) {
+            skipped++;
+            // Vẫn cần lấy postId để có thể analyze AI sau
+            const { data: existing } = await supabase
+              .from("profile_posts")
+              .select("id")
+              .eq("profile_id", profileId)
+              .eq("post_url", post.link)
+              .maybeSingle();
+            postId = existing?.id || null;
+          } else {
+            errors.push(`Failed to save post: ${upsertError.message}`);
+          }
+          continue;
+        }
+
+        if (upsertedPost) {
+          // Check xem post này là mới hay đã tồn tại (dựa trên created_at)
+          const isNewPost = new Date(upsertedPost.created_at).getTime() >= Date.now() - 5000; // Nếu created_at < 5 giây trước, có thể là post mới
+          // Hoặc check xem có content mới không (nếu content khác với DB)
+          // Tạm thời coi như saved nếu upsert thành công
+          saved++;
+          postId = upsertedPost.id;
+        }
       } else {
-        // Insert post mới (không còn user_id - shared scraping)
+        // Nếu không có post_url, không thể dùng UPSERT (UNIQUE constraint cần post_url)
+        // Insert bình thường (không có duplicate check)
         const { data: newPost, error: insertError } = await supabase
           .from("profile_posts")
           .insert({
             profile_id: profileId,
             content: post.text || null,
-            post_url: post.link || null,
+            post_url: null,
             image_url: post.image || null,
             published_at: publishedAt,
           })
@@ -295,12 +342,7 @@ export async function saveScrapedPosts(
           .single();
 
         if (insertError) {
-          // Nếu lỗi do duplicate (có thể xảy ra trong race condition), skip
-          if (insertError.code === "23505" || insertError.message?.includes("duplicate")) {
-            skipped++;
-          } else {
-            errors.push(`Failed to save post: ${insertError.message}`);
-          }
+          errors.push(`Failed to save post: ${insertError.message}`);
           continue;
         }
 
@@ -310,10 +352,10 @@ export async function saveScrapedPosts(
         }
       }
 
-      // Tự động phân tích với AI nếu có content
-      // SHARED SCRAPING: Chỉ phân tích nếu chưa có AI analysis (tiết kiệm chi phí)
-      // Phân tích cả post mới và post đã tồn tại nhưng chưa có AI analysis
-      if (postId && post.text && post.text.trim().length > 0) {
+      // Collect posts cần AI analysis (sẽ xử lý batch sau)
+      // 🔍 EFFICIENCY: Chỉ gửi AI những bài có text đủ dài (> 20 ký tự) để tiết kiệm chi phí
+      // Những bài chỉ có ảnh hoặc quá ngắn thì bỏ qua
+      if (postId && post.text && post.text.trim().length > 20) {
         // Check xem post đã có AI analysis chưa (có thể từ user khác đã phân tích)
         const { data: existingPostData } = await supabase
           .from("profile_posts")
@@ -321,43 +363,83 @@ export async function saveScrapedPosts(
           .eq("id", postId)
           .single();
 
-        // Chỉ phân tích nếu chưa có AI analysis
+        // Chỉ thêm vào queue nếu chưa có AI analysis
         if (!existingPostData?.ai_analysis || typeof existingPostData.ai_analysis !== "object") {
-          try {
-            const aiResult = await analyzePostWithAI(post.text, undefined, postId);
-            if (aiResult.data) {
-              // Update post với AI analysis (shared cho tất cả users)
-              // Format JSON theo System Context: summary, signal, opportunity_score, intent, intent_score, reason, keywords
-              await supabase
-                .from("profile_posts")
-                .update({
-                  ai_analysis: {
-                    summary: aiResult.data.summary || "Chưa có tóm tắt",
-                    signal: aiResult.data.signal || "Khác",
-                    opportunity_score: aiResult.data.opportunity_score || 0,
-                    intent: aiResult.data.intent || "Neutral", // AI Radar: Hot Lead, Warm Lead, Information, Neutral
-                    intent_score: aiResult.data.intent_score || 0, // AI Radar: Độ nóng của cơ hội (1-100)
-                    reason: aiResult.data.reason || "Không có giải thích", // AI Radar: Giải thích ngắn gọn
-                    keywords: Array.isArray(aiResult.data.keywords) ? aiResult.data.keywords : [], // Deprecated - giữ lại để tương thích
-                  },
-                  ai_suggestions: Array.isArray(aiResult.data.ice_breakers) ? aiResult.data.ice_breakers : [],
-                })
-                .eq("id", postId);
-            } else if (aiResult.error && process.env.NODE_ENV === "development") {
-              // Log error nhưng không block việc lưu post
-              console.warn(`[saveScrapedPosts] AI analysis failed for post ${postId}: ${aiResult.error}`);
-            }
-          } catch (aiError: any) {
-            // Nếu AI fail, post vẫn được lưu (không có AI data)
-            if (process.env.NODE_ENV === "development") {
-              console.error(`[saveScrapedPosts] Error analyzing post ${postId}:`, aiError);
-            }
-            // Không push error vào errors array vì post vẫn được lưu thành công
-          }
+          postsNeedingAI.push({ postId, text: post.text });
+        }
+      } else if (postId && post.text && post.text.trim().length > 0 && post.text.trim().length <= 20) {
+        // Log những bài quá ngắn để tracking
+        if (process.env.NODE_ENV === "development") {
+          console.log(`[AI SKIP] Post ${postId}: Text too short (${post.text.trim().length} chars), skipping AI analysis`);
         }
       }
     } catch (error: any) {
       errors.push(`Error processing post: ${error.message}`);
+    }
+  }
+
+  // BƯỚC 2: Xử lý AI analysis theo batch (tránh gọi quá nhiều cùng lúc)
+  // Giới hạn: Tối đa 20 posts được analyze trong một lần sync
+  // Batch size: 5 posts mỗi batch
+  // Delay: 500ms giữa các batches
+  const MAX_AI_POSTS = 20;
+  const BATCH_SIZE = 5;
+  const BATCH_DELAY_MS = 500;
+  
+  const postsToAnalyze = postsNeedingAI.slice(0, MAX_AI_POSTS);
+  const totalBatches = Math.ceil(postsToAnalyze.length / BATCH_SIZE);
+  
+  if (postsToAnalyze.length > 0) {
+    console.log(`[AI BATCH] Processing ${postsToAnalyze.length} posts in ${totalBatches} batches (max ${MAX_AI_POSTS} posts, ${BATCH_SIZE} per batch)`);
+    
+    for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+      const batchStart = batchIndex * BATCH_SIZE;
+      const batchEnd = Math.min(batchStart + BATCH_SIZE, postsToAnalyze.length);
+      const batch = postsToAnalyze.slice(batchStart, batchEnd);
+      
+      console.log(`[AI BATCH] Processing batch ${batchIndex + 1}/${totalBatches} (${batch.length} posts)`);
+      
+      // Xử lý batch này (tuần tự để tránh rate limit)
+      for (const { postId, text } of batch) {
+        try {
+          const aiResult = await analyzePostWithAI(text, undefined, postId);
+          if (aiResult.data) {
+            // Update post với AI analysis (shared cho tất cả users)
+            // Format JSON theo System Context: summary, signal, opportunity_score, intent, intent_score, reason, keywords
+            await supabase
+              .from("profile_posts")
+              .update({
+                ai_analysis: {
+                  summary: aiResult.data.summary || "Chưa có tóm tắt",
+                  signal: aiResult.data.signal || "Khác",
+                  opportunity_score: aiResult.data.opportunity_score || 0,
+                  intent: aiResult.data.intent || "Neutral", // AI Radar: Hot Lead, Warm Lead, Information, Neutral
+                  intent_score: aiResult.data.intent_score || 0, // AI Radar: Độ nóng của cơ hội (1-100)
+                  reason: aiResult.data.reason || "Không có giải thích", // AI Radar: Giải thích ngắn gọn
+                  keywords: Array.isArray(aiResult.data.keywords) ? aiResult.data.keywords : [], // Deprecated - giữ lại để tương thích
+                },
+                ai_suggestions: Array.isArray(aiResult.data.ice_breakers) ? aiResult.data.ice_breakers : [],
+              })
+              .eq("id", postId);
+          } else if (aiResult.error) {
+            // Log error nhưng không block việc lưu post
+            console.warn(`[AI BATCH] AI analysis failed for post ${postId}: ${aiResult.error}`);
+          }
+        } catch (aiError: any) {
+          // Nếu AI fail, post vẫn được lưu (không có AI data)
+          console.error(`[AI BATCH] Error analyzing post ${postId}:`, aiError);
+          // Không push error vào errors array vì post vẫn được lưu thành công
+        }
+      }
+      
+      // Delay giữa các batches (trừ batch cuối)
+      if (batchIndex < totalBatches - 1) {
+        await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
+      }
+    }
+    
+    if (postsNeedingAI.length > MAX_AI_POSTS) {
+      console.warn(`[AI BATCH] Limited AI analysis to ${MAX_AI_POSTS} posts (${postsNeedingAI.length - MAX_AI_POSTS} posts skipped to save costs)`);
     }
   }
 

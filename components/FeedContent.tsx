@@ -119,8 +119,32 @@ export function FeedContent({
       toast.success(t("copySuggestion"));
       setTimeout(() => setCopiedSuggestionId(null), 2000);
       
-      // Update last_contacted_at (Interaction Clock)
-      await updateLastContactedAt(profileId);
+      // 🔍 CONSISTENCY: Optimistic Update - Update UI ngay lập tức trước khi gọi API
+      // Update healthScores state để UI phản ánh ngay lập tức
+      setHealthScores((prev) => {
+        const updated = { ...prev };
+        if (updated[profileId]) {
+          // Update status thành "healthy" (< 3 days)
+          updated[profileId] = {
+            status: "healthy",
+            color: {
+              bg: "bg-emerald-500",
+              text: "text-emerald-700",
+              border: "border-emerald-500",
+            },
+          };
+        }
+        return updated;
+      });
+      
+      // Update last_contacted_at (Interaction Clock) - Background update
+      updateLastContactedAt(profileId).catch((error) => {
+        // Nếu update fail, revert optimistic update (optional)
+        if (process.env.NODE_ENV === "development") {
+          console.warn("[handleCopySuggestion] Failed to update last_contacted_at:", error);
+        }
+        // Có thể reload health score nếu cần
+      });
     } catch (error) {
       toast.error("Failed to copy suggestion");
     }
@@ -327,10 +351,20 @@ export function FeedContent({
             </div>
             <div className="space-y-4">
               <h3 className="text-2xl font-bold text-slate-800">
-                {t("emptyTitle")}
+                {/* 🔍 UX: Hiển thị message khác nhau tùy theo filter */}
+                {feedFilter === "hotLeads"
+                  ? "Chưa có cơ hội nào mới"
+                  : feedFilter === "marketNews"
+                  ? "Chưa có tin thị trường nào"
+                  : t("emptyTitle")}
               </h3>
               <p className="text-slate-600">
-                {profilesCount > 0
+                {/* 🔍 UX: Message phù hợp với filter đang chọn */}
+                {feedFilter === "hotLeads"
+                  ? "Hiện tại chưa có bài đăng nào có điểm Intent > 70. Hãy thử sync lại hoặc chọn tab khác."
+                  : feedFilter === "marketNews"
+                  ? "Hiện tại chưa có bài đăng nào được phân loại là 'Tin thị trường'. Hãy thử sync lại hoặc chọn tab khác."
+                  : profilesCount > 0
                   ? t("emptyMessageWithProfiles", { count: profilesCount })
                   : t("emptyMessage")}
               </p>
@@ -585,21 +619,45 @@ export function FeedContent({
               {/* Post Footer - Neumorphism Style */}
               <div className="flex items-center gap-3 mt-4 pt-4 border-t border-slate-200 flex-wrap">
                 {/* Quick CRM: Copy Ice Breaker Button */}
-                {post.ai_suggestions && parseAISuggestions(post.ai_suggestions).length > 0 && (
-                  <button
-                    onClick={() => {
-                      const firstSuggestion = parseAISuggestions(post.ai_suggestions)[0];
-                      if (firstSuggestion) {
-                        handleCopySuggestion(firstSuggestion, `${post.id}-quick`, post.profile_id);
+                {/* 🔍 UX: Hiển thị button luôn, nhưng disable nếu chưa có ai_suggestions */}
+                {(() => {
+                  const hasSuggestions = post.ai_suggestions && parseAISuggestions(post.ai_suggestions).length > 0;
+                  return (
+                    <button
+                      onClick={() => {
+                        if (hasSuggestions) {
+                          const firstSuggestion = parseAISuggestions(post.ai_suggestions)[0];
+                          if (firstSuggestion) {
+                            handleCopySuggestion(firstSuggestion, `${post.id}-quick`, post.profile_id);
+                          }
+                        }
+                      }}
+                      disabled={!hasSuggestions}
+                      className={`flex items-center gap-2 px-4 py-2 neu-button rounded-lg shadow-soft-button transition-all font-medium text-sm ${
+                        hasSuggestions
+                          ? "bg-gradient-to-r from-purple-400 to-pink-400 text-white hover:shadow-soft-button-pressed active:shadow-soft-button-pressed cursor-pointer"
+                          : "bg-slate-200 text-slate-500 cursor-not-allowed opacity-60"
+                      }`}
+                      title={
+                        hasSuggestions
+                          ? "Copy Ice Breaker đầu tiên để săn khách ngay"
+                          : "Đang chuẩn bị gợi ý phản hồi..."
                       }
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 neu-button bg-gradient-to-r from-purple-400 to-pink-400 text-white rounded-lg shadow-soft-button hover:shadow-soft-button-pressed active:shadow-soft-button-pressed transition-all font-medium text-sm"
-                    title="Copy Ice Breaker đầu tiên để săn khách ngay"
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                    Copy Ice Breaker
-                  </button>
-                )}
+                    >
+                      {hasSuggestions ? (
+                        <>
+                          <MessageCircle className="w-4 h-4" />
+                          Copy Ice Breaker
+                        </>
+                      ) : (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Đang chuẩn bị...
+                        </>
+                      )}
+                    </button>
+                  );
+                })()}
                 {post.post_url && (
                   <>
                     <a

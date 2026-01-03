@@ -835,6 +835,216 @@ const result = await addProfile({
 - Tự động cập nhật `last_contacted_at` để track thời gian liên hệ cuối cùng
 - UI Badge: Hiển thị "Cần chăm sóc" (màu đỏ) nếu `NOW() - last_contacted_at > 7 days`
 
+### 5. Scraper Services (`lib/scrapers/`) ✅ Module 4.4 - Scraper Engine
+
+**Mục đích**: Fetch posts từ social media platforms sử dụng RapidAPI với API key rotation và cost optimization.
+
+#### `api-rotator.ts` - API Key Rotation
+
+**Functions**:
+
+##### `getValidKey(provider: string)`
+- **Mục đích**: Lấy một API key còn hoạt động từ `api_key_pool`
+- **Logic**: Query key có `status = 'active'`, sắp xếp theo `current_usage` (thấp nhất trước)
+- **Return**: `{key: ApiKeyInfo | null, error: string | null}`
+
+##### `fetchWithRotation(provider, url, options, maxRetries, rapidApiHost)`
+- **Mục đích**: Fetch với API rotation tự động
+- **Features**:
+  - Tự động rotate key nếu gặp rate limit (429)
+  - Cập nhật `current_usage` sau mỗi request thành công
+  - Đánh dấu key là `rate_limited` nếu bị 429
+  - Đánh dấu key là `dead` nếu fail sau `maxRetries`
+- **Logging**: 
+  - `[API CALL]`: Log mỗi khi API được gọi (timestamp, provider, URL, key ID)
+  - `[API SUCCESS]`: Log khi thành công (status code)
+  - `[API RATE LIMIT]`: Log khi bị rate limit (retry count)
+  - `[API ERROR]`: Log khi có lỗi (status, error message)
+- **Return**: `{data: any, error: string | null, usedKeyId: string | null}`
+
+#### `social-scraper.ts` - Social Media Scraper
+
+**Functions**:
+
+##### `fetchSocialPosts(url: string)`
+- **Mục đích**: Fetch posts từ Facebook/LinkedIn/Twitter sử dụng RapidAPI
+- **Platform Detection**: Tự động detect platform từ URL (facebook, linkedin, twitter)
+- **Endpoints**:
+  - Facebook: `facebook-scraper3.p.rapidapi.com/page/posts`
+  - LinkedIn: `linkedin-api8.p.rapidapi.com/v1/posts`
+  - Twitter: `twitter-api45.p.rapidapi.com/v1/timeline`
+- **Logging**:
+  - `[SCRAPER API]`: Log khi fetch được gọi (platform, URL, endpoint)
+  - `[SCRAPER API SUCCESS]`: Log khi thành công (số posts fetched)
+  - `[SCRAPER API ERROR]`: Log khi có lỗi
+- **Return**: `{data: ScrapedPost[] | null, error: string | null}`
+
+##### `saveScrapedPosts(profileId, posts)`
+- **Mục đích**: Lưu posts vào database với AI analysis batching
+- **Logic**:
+  1. **BƯỚC 1**: Lưu tất cả posts vào database (không gọi AI ngay)
+  2. **BƯỚC 2**: Collect posts cần AI analysis vào queue
+  3. **BƯỚC 3**: Xử lý AI analysis theo batch:
+     - **Giới hạn**: Tối đa 20 posts được analyze trong một lần sync
+     - **Batch size**: 5 posts mỗi batch
+     - **Delay**: 500ms giữa các batches
+     - **Shared AI**: Check xem post đã có AI analysis chưa (từ user khác) → skip nếu có
+- **Logging**:
+  - `[AI BATCH]`: Log progress (số posts, số batches)
+  - Warning nếu vượt quá 20 posts (số posts bị skip)
+- **Return**: `{saved: number, skipped: number, errors: string[]}`
+
+**⚠️ COST OPTIMIZATION**:
+- Chỉ analyze tối đa 20 posts mỗi lần sync (tiết kiệm chi phí AI)
+- Batch processing với delay để tránh rate limit
+- Shared AI analysis: Nếu post đã được analyze bởi user khác, dùng kết quả có sẵn
+
+---
+
+## 💰 COST & PERFORMANCE OPTIMIZATION (Module 4.5)
+
+### 1. API Leak Check - Monitoring & Logging
+
+**Mục đích**: Đảm bảo không có API calls không cần thiết, tiết kiệm chi phí API.
+
+**Implementation**:
+
+#### a) API Call Logging (`lib/scrapers/api-rotator.ts`)
+- **`[API CALL]`**: Log mỗi khi API được gọi thực sự
+  - Format: `[API CALL] {timestamp} | Provider: {provider} | URL: {url} | Key ID: {keyId}`
+- **`[API SUCCESS]`**: Log khi thành công
+  - Format: `[API SUCCESS] {timestamp} | Provider: {provider} | Key ID: {keyId} | Status: {status}`
+- **`[API RATE LIMIT]`**: Log khi bị rate limit
+  - Format: `[API RATE LIMIT] {timestamp} | Provider: {provider} | Key ID: {keyId} | Retry: {retry}/{maxRetries}`
+- **`[API ERROR]`**: Log khi có lỗi
+  - Format: `[API ERROR] {timestamp} | Provider: {provider} | Key ID: {keyId} | Status: {status} | Error: {error}`
+
+#### b) Scraper API Logging (`lib/scrapers/social-scraper.ts`)
+- **`[SCRAPER API]`**: Log khi `fetchSocialPosts` được gọi
+  - Format: `[SCRAPER API] {timestamp} | Platform: {platform} | URL: {url} | Endpoint: {endpoint}`
+- **`[SCRAPER API SUCCESS]`**: Log khi thành công
+  - Format: `[SCRAPER API SUCCESS] {timestamp} | Platform: {platform} | URL: {url} | Posts fetched: {count}`
+- **`[SCRAPER API ERROR]`**: Log khi có lỗi
+  - Format: `[SCRAPER API ERROR] {timestamp} | Platform: {platform} | URL: {url} | Error: {error}`
+
+#### c) Sync Feed Logging (`lib/feed/actions.ts`)
+- **`[API SKIP - syncFeed]`** / **`[API SKIP - syncFeedByCategory]`**: Log khi skip API call
+  - Case 1: Skip do `last_synced_at < 1 hour`
+    - Format: `[API SKIP - {function}] Profile "{title}" ({id}): Skipped API call - last_synced_at {hours} hours ago (< 1 hour)`
+  - Case 2: Skip do có posts mới trong DB
+    - Format: `[API SKIP - {function}] Profile "{title}" ({id}): Skipped API call - Found {count} recent posts in DB`
+- **`[API CALL - syncFeed]`** / **`[API CALL - syncFeedByCategory]`**: Log khi sẽ gọi API
+  - Format: `[API CALL - {function}] Profile "{title}" ({id}): Will call API - No recent posts found`
+- **`[SYNC FEED]`** / **`[SYNC FEED BY CATEGORY]`**: Log summary
+  - Format: `[SYNC FEED] Starting sync for {count} profiles ({skipped} skipped due to recent sync)`
+  - Format: `[SYNC FEED] Calling API for profile "{title}" ({id})`
+
+**Verification**:
+- ✅ Tất cả calls đến `fetchSocialPosts()` đều đi qua check `last_synced_at` trong `syncFeed()` và `syncFeedByCategory()`
+- ✅ Không có chỗ nào gọi API mà không đi qua check
+
+### 2. AI Queue Check - Batching & Rate Limiting
+
+**Mục đích**: Tránh gọi AI quá nhiều cùng lúc, tiết kiệm chi phí và tránh timeout.
+
+**Implementation** (`lib/scrapers/social-scraper.ts` - `saveScrapedPosts()`):
+
+#### a) Two-Phase Processing
+1. **Phase 1**: Lưu tất cả posts vào database (không gọi AI ngay)
+2. **Phase 2**: Xử lý AI analysis theo batch sau khi lưu xong
+
+#### b) Batch Configuration
+- **MAX_AI_POSTS**: 20 (tối đa số posts được analyze trong một lần sync)
+- **BATCH_SIZE**: 5 (số posts mỗi batch)
+- **BATCH_DELAY_MS**: 500 (delay giữa các batches, milliseconds)
+
+#### c) Batch Processing Logic
+```typescript
+// Collect posts cần AI analysis
+const postsToAnalyze = postsNeedingAI.slice(0, MAX_AI_POSTS);
+const totalBatches = Math.ceil(postsToAnalyze.length / BATCH_SIZE);
+
+// Process từng batch
+for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+  const batch = postsToAnalyze.slice(batchIndex * BATCH_SIZE, (batchIndex + 1) * BATCH_SIZE);
+  
+  // Process batch này (tuần tự)
+  for (const { postId, text } of batch) {
+    await analyzePostWithAI(text, undefined, postId);
+  }
+  
+  // Delay giữa các batches (trừ batch cuối)
+  if (batchIndex < totalBatches - 1) {
+    await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
+  }
+}
+```
+
+#### d) Shared AI Analysis Check
+- Trước khi gọi AI, check xem post đã có AI analysis chưa (từ user khác)
+- Nếu đã có, skip (tiết kiệm 100% chi phí AI cho post đó)
+
+#### e) Logging
+- **`[AI BATCH]`**: Log progress
+  - Format: `[AI BATCH] Processing {count} posts in {batches} batches (max {max} posts, {size} per batch)`
+  - Format: `[AI BATCH] Processing batch {current}/{total} ({count} posts)`
+- **Warning**: Nếu vượt quá MAX_AI_POSTS
+  - Format: `[AI BATCH] Limited AI analysis to {max} posts ({skipped} posts skipped to save costs)`
+
+**Benefits**:
+- ✅ Tránh gọi AI 50 lần cùng lúc (nếu có 50 posts mới)
+- ✅ Giới hạn chi phí AI (tối đa 20 posts/lần sync)
+- ✅ Batch processing với delay → tránh rate limit và timeout
+- ✅ Shared AI analysis → tiết kiệm chi phí khi nhiều users track cùng profile
+
+### 3. Shared Scraping Optimization
+
+**Mục đích**: Chỉ scrape mỗi profile tối đa 1 lần/giờ, chia sẻ dữ liệu cho tất cả users.
+
+**Implementation** (`lib/feed/actions.ts` - `syncFeed()` và `syncFeedByCategory()`):
+
+#### a) Pre-Check Logic (TRƯỚC khi gọi API)
+1. **BƯỚC 1**: Check `last_synced_at`
+   - Nếu `last_synced_at < 1 hour ago` → Skip API call, lấy dữ liệu từ DB
+2. **BƯỚC 2**: Check posts mới trong DB
+   - Nếu có posts mới trong 1 giờ qua (`created_at >= 1 hour ago` hoặc `published_at >= 1 hour ago`) → Skip API call
+3. **BƯỚC 3**: Chỉ gọi API nếu:
+   - `last_synced_at >= 1 hour ago` HOẶC `null`
+   - VÀ không có posts mới trong DB
+
+#### b) Post-Sync Update
+- Sau khi sync thành công, update `last_synced_at = NOW()` trong `profiles_tracked`
+
+**Benefits**:
+- ✅ Tiết kiệm API calls: Nếu 10 users track cùng profile, chỉ scrape 1 lần/giờ thay vì 10 lần
+- ✅ Faster response: Lấy dữ liệu từ DB thay vì gọi API (nhanh hơn)
+- ✅ Cost reduction: Giảm chi phí RapidAPI đáng kể
+
+### 4. Monitoring & Debugging
+
+**Console Logs** (Development mode):
+- Tất cả logs chỉ hiển thị trong development mode (`process.env.NODE_ENV === "development"`)
+- Production: Logs được tắt để tối ưu performance
+
+**Log Tags**:
+- `[API CALL]` / `[API SKIP]` / `[API SUCCESS]` / `[API ERROR]`: API calls
+- `[SCRAPER API]` / `[SCRAPER API SUCCESS]` / `[SCRAPER API ERROR]`: Scraper operations
+- `[SYNC FEED]` / `[SYNC FEED BY CATEGORY]`: Sync operations
+- `[AI BATCH]`: AI analysis batching
+
+**How to Monitor**:
+1. Mở Console/Logs trong development
+2. Tìm các tags trên để track:
+   - Số lần API được gọi vs số lần bị skip
+   - Số posts được analyze vs số posts bị skip
+   - Progress của AI batching
+
+**⚠️ QUAN TRỌNG**:
+- Tất cả API calls đều phải đi qua check `last_synced_at` TRƯỚC khi gọi
+- AI analysis được giới hạn tối đa 20 posts/lần sync
+- Batch processing với delay để tránh rate limit và timeout
+- Shared scraping giúp tiết kiệm chi phí API đáng kể
+
 ---
 
 ## 🎨 UI COMPONENTS

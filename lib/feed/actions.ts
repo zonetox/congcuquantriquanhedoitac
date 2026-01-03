@@ -215,6 +215,10 @@ export async function syncFeed(): Promise<{
       if (profile.last_synced_at) {
         const lastSyncedAt = new Date(profile.last_synced_at);
         if (lastSyncedAt >= oneHourAgo) {
+          // 🔍 API LEAK CHECK: Log khi skip API call do last_synced_at
+          const hoursSinceSync = (Date.now() - lastSyncedAt.getTime()) / (1000 * 60 * 60);
+          console.log(`[API SKIP - syncFeed] Profile "${profile.title}" (${profile.id}): Skipped API call - last_synced_at ${hoursSinceSync.toFixed(2)} hours ago (< 1 hour)`);
+          
           // Đã sync trong 1 giờ qua, lấy dữ liệu từ profile_posts thay vì gọi API
           const { count: existingPostsCount } = await supabase
             .from("profile_posts")
@@ -248,6 +252,9 @@ export async function syncFeed(): Promise<{
       const recentPostsCount = (recentPostsByCreated || 0) + (recentPostsByPublished || 0);
 
       if (recentPostsCount > 0) {
+        // 🔍 API LEAK CHECK: Log khi skip API call do có posts mới
+        console.log(`[API SKIP - syncFeed] Profile "${profile.title}" (${profile.id}): Skipped API call - Found ${recentPostsCount} recent posts in DB`);
+        
         // Có posts mới trong 1 giờ qua, không cần gọi API
         totalRecentPosts += recentPostsCount;
         // Update last_synced_at để đánh dấu đã check (nhưng không gọi API)
@@ -259,6 +266,7 @@ export async function syncFeed(): Promise<{
       }
 
       // BƯỚC 3: Không có posts mới và last_synced_at >= 1 giờ hoặc null, cần gọi API
+      console.log(`[API CALL - syncFeed] Profile "${profile.title}" (${profile.id}): Will call API - No recent posts found`);
       profilesToSync.push(profile);
     }
 
@@ -277,15 +285,37 @@ export async function syncFeed(): Promise<{
     const errors: string[] = [];
 
     // Fetch posts từ mỗi profile cần sync
+    console.log(`[SYNC FEED] Starting sync for ${profilesToSync.length} profiles (${profiles.length - profilesToSync.length} skipped due to recent sync)`);
     for (const profile of profilesToSync) {
       try {
+        // 🔍 API LEAK CHECK: Log trước khi gọi API
+        console.log(`[SYNC FEED] Calling API for profile "${profile.title}" (${profile.id})`);
+        
         // Fetch latest posts từ scraper (Module 4.4: Scraper Engine thực tế)
         const scrapedResult = await fetchSocialPosts(profile.url);
         
-        if (scrapedResult.error || !scrapedResult.data || scrapedResult.data.length === 0) {
-          if (scrapedResult.error) {
-            errors.push(`${profile.title}: ${scrapedResult.error}`);
+        // 🔍 RESILIENCE: Xử lý lỗi API (404, 500, etc.) - log và không block sync của profiles khác
+        if (scrapedResult.error) {
+          const errorMsg = `${profile.title}: ${scrapedResult.error}`;
+          errors.push(errorMsg);
+          
+          // Log chi tiết lỗi để debugging
+          console.error(`[SYNC FEED ERROR] Profile "${profile.title}" (${profile.id}): ${scrapedResult.error}`);
+          
+          // Không block sync của profiles khác - continue để sync profile tiếp theo
+          continue;
+        }
+        
+        if (!scrapedResult.data || scrapedResult.data.length === 0) {
+          // Không có posts mới - không phải lỗi, chỉ log
+          if (process.env.NODE_ENV === "development") {
+            console.log(`[SYNC FEED] Profile "${profile.title}" (${profile.id}): No new posts found`);
           }
+          // Vẫn update last_synced_at để đánh dấu đã check
+          await supabase
+            .from("profiles_tracked")
+            .update({ last_synced_at: new Date().toISOString() })
+            .eq("id", profile.id);
           continue;
         }
 
@@ -308,7 +338,11 @@ export async function syncFeed(): Promise<{
           .update({ last_synced_at: new Date().toISOString() })
           .eq("id", profile.id);
       } catch (error: any) {
-        errors.push(`${profile.title}: ${error.message || "Unknown error"}`);
+        // 🔍 RESILIENCE: Catch và log lỗi, không block sync của profiles khác
+        const errorMsg = `${profile.title}: ${error.message || "Unknown error"}`;
+        errors.push(errorMsg);
+        console.error(`[SYNC FEED EXCEPTION] Profile "${profile.title}" (${profile.id}): ${error.message || "Unknown error"}`, error);
+        // Continue để sync profile tiếp theo
       }
     }
 
@@ -564,6 +598,10 @@ export async function syncFeedByCategory(
       if (profile.last_synced_at) {
         const lastSyncedAt = new Date(profile.last_synced_at);
         if (lastSyncedAt >= oneHourAgo) {
+          // 🔍 API LEAK CHECK: Log khi skip API call do last_synced_at
+          const hoursSinceSync = (Date.now() - lastSyncedAt.getTime()) / (1000 * 60 * 60);
+          console.log(`[API SKIP - syncFeedByCategory] Profile "${profile.title}" (${profile.id}): Skipped API call - last_synced_at ${hoursSinceSync.toFixed(2)} hours ago (< 1 hour)`);
+          
           // Đã sync trong 1 giờ qua, lấy dữ liệu từ profile_posts thay vì gọi API
           const { count: existingPostsCount } = await supabase
             .from("profile_posts")
@@ -597,6 +635,9 @@ export async function syncFeedByCategory(
       const recentPostsCount = (recentPostsByCreated || 0) + (recentPostsByPublished || 0);
 
       if (recentPostsCount > 0) {
+        // 🔍 API LEAK CHECK: Log khi skip API call do có posts mới
+        console.log(`[API SKIP - syncFeedByCategory] Profile "${profile.title}" (${profile.id}): Skipped API call - Found ${recentPostsCount} recent posts in DB`);
+        
         // Có posts mới trong 1 giờ qua, không cần gọi API
         totalRecentPosts += recentPostsCount;
         // Update last_synced_at để đánh dấu đã check (nhưng không gọi API)
@@ -608,6 +649,7 @@ export async function syncFeedByCategory(
       }
 
       // BƯỚC 3: Không có posts mới và last_synced_at >= 1 giờ hoặc null, cần gọi API
+      console.log(`[API CALL - syncFeedByCategory] Profile "${profile.title}" (${profile.id}): Will call API - No recent posts found`);
       profilesToSync.push(profile);
     }
 
@@ -625,15 +667,37 @@ export async function syncFeedByCategory(
     const errors: string[] = [];
 
     // Fetch posts từ mỗi profile cần sync
+    console.log(`[SYNC FEED BY CATEGORY] Starting sync for ${profilesToSync.length} profiles (${profiles.length - profilesToSync.length} skipped due to recent sync)`);
     for (const profile of profilesToSync) {
       try {
+        // 🔍 API LEAK CHECK: Log trước khi gọi API
+        console.log(`[SYNC FEED BY CATEGORY] Calling API for profile "${profile.title}" (${profile.id})`);
+        
         // Fetch latest posts từ scraper (Module 4.4: Scraper Engine thực tế)
         const scrapedResult = await fetchSocialPosts(profile.url);
         
-        if (scrapedResult.error || !scrapedResult.data || scrapedResult.data.length === 0) {
-          if (scrapedResult.error) {
-            errors.push(`${profile.title}: ${scrapedResult.error}`);
+        // 🔍 RESILIENCE: Xử lý lỗi API (404, 500, etc.) - log và không block sync của profiles khác
+        if (scrapedResult.error) {
+          const errorMsg = `${profile.title}: ${scrapedResult.error}`;
+          errors.push(errorMsg);
+          
+          // Log chi tiết lỗi để debugging
+          console.error(`[SYNC FEED BY CATEGORY ERROR] Profile "${profile.title}" (${profile.id}): ${scrapedResult.error}`);
+          
+          // Không block sync của profiles khác - continue để sync profile tiếp theo
+          continue;
+        }
+        
+        if (!scrapedResult.data || scrapedResult.data.length === 0) {
+          // Không có posts mới - không phải lỗi, chỉ log
+          if (process.env.NODE_ENV === "development") {
+            console.log(`[SYNC FEED BY CATEGORY] Profile "${profile.title}" (${profile.id}): No new posts found`);
           }
+          // Vẫn update last_synced_at để đánh dấu đã check
+          await supabase
+            .from("profiles_tracked")
+            .update({ last_synced_at: new Date().toISOString() })
+            .eq("id", profile.id);
           continue;
         }
 
@@ -656,7 +720,11 @@ export async function syncFeedByCategory(
           .update({ last_synced_at: new Date().toISOString() })
           .eq("id", profile.id);
       } catch (error: any) {
-        errors.push(`${profile.title}: ${error.message || "Unknown error"}`);
+        // 🔍 RESILIENCE: Catch và log lỗi, không block sync của profiles khác
+        const errorMsg = `${profile.title}: ${error.message || "Unknown error"}`;
+        errors.push(errorMsg);
+        console.error(`[SYNC FEED BY CATEGORY EXCEPTION] Profile "${profile.title}" (${profile.id}): ${error.message || "Unknown error"}`, error);
+        // Continue để sync profile tiếp theo
       }
     }
 
