@@ -105,8 +105,32 @@ export function FeedContent({
       toast.success(t("linkCopied"));
       setTimeout(() => setCopiedId(null), 2000);
       
-      // Update last_contacted_at (Interaction Clock)
-      await updateLastContactedAt(profileId);
+      // 🔍 CONSISTENCY: Optimistic Update - Update UI ngay lập tức trước khi gọi API
+      // Update healthScores state để UI phản ánh ngay lập tức
+      setHealthScores((prev) => {
+        const updated = { ...prev };
+        if (updated[profileId]) {
+          // Update status thành "healthy" (< 3 days)
+          updated[profileId] = {
+            status: "healthy",
+            color: {
+              bg: "bg-emerald-500",
+              text: "text-emerald-700",
+              border: "border-emerald-500",
+            },
+          };
+        }
+        return updated;
+      });
+      
+      // Update last_contacted_at (Interaction Clock) - Background update
+      updateLastContactedAt(profileId).catch((error) => {
+        // Nếu update fail, revert optimistic update (optional)
+        if (process.env.NODE_ENV === "development") {
+          console.warn("[handleCopyLink] Failed to update last_contacted_at:", error);
+        }
+        // Có thể reload health score nếu cần
+      });
     } catch (error) {
       toast.error(t("error"));
     }
@@ -197,127 +221,127 @@ export function FeedContent({
 
   return (
     <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header - Neumorphism Style */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between flex-wrap gap-4">
+      {/* Header - Minimal */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
           <div>
-            <h1 className="text-3xl font-bold text-slate-800 flex items-center gap-3">
-              <Rss className="w-8 h-8 text-pastel-teal" />
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Rss className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
               {t("title")}
             </h1>
-            <p className="text-slate-600 mt-1">
+            <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5">
               {t("subtitle")}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {/* Export Button */}
             <ExportButton />
-            {/* Sync Button - Neumorphism Style */}
+            {/* Sync Button - Minimal */}
             <button
               onClick={handleSync}
               disabled={syncing}
-              className="px-6 py-3 neu-button bg-gradient-to-r from-emerald-400 to-blue-400 text-white rounded-full shadow-soft-button hover:shadow-soft-button-pressed active:shadow-soft-button-pressed transition-all transform active:scale-95 font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-blue-600 text-white rounded-lg shadow-sm hover:shadow-md transition-all font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {syncing ? (
                 <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin" />
                   {t("syncing")}
                 </> 
               ) : (
                 <>
-                  <RotateCw className="w-5 h-5" />
+                  <RotateCw className="w-4 h-4" />
                   {t("sync")}
                 </>
               )}
             </button>
-            {/* Refresh Button - Neumorphism Style */}
+            {/* Refresh Button - Minimal */}
             <button
               onClick={handleRefresh}
-              className="p-3 neu-icon-box rounded-xl text-slate-600 hover:text-emerald-600 transition-all active:shadow-soft-button-pressed"
+              className="p-2 border border-slate-300 dark:border-gray-600 rounded-lg text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors"
               title="Refresh"
             >
-              <RefreshCw className="w-5 h-5" />
+              <RefreshCw className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {/* Filter Bar - Neumorphism Style */}
-        <div className="mt-6 space-y-4">
+        {/* Filter Bar - Minimal */}
+        <div className="space-y-3">
           {/* Newsfeed Filter Tabs - Sales Intelligence */}
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => {
                 setFeedFilter("all");
                 setSalesOpportunityOnly(false);
               }}
-              className={`px-4 py-2 rounded-lg font-medium transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                 feedFilter === "all"
-                  ? "neu-button shadow-soft-button-pressed bg-gradient-to-r from-emerald-400 to-blue-400 text-white"
-                  : "neu-button shadow-soft-out text-slate-700 hover:shadow-soft-button"
+                  ? "bg-gradient-to-r from-emerald-600 to-blue-600 text-white shadow-sm"
+                  : "bg-slate-100 dark:bg-gray-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-gray-600"
               }`}
             >
-              Tất cả bài đăng
+              {t("allPosts")}
             </button>
             <button
               onClick={() => {
                 setFeedFilter("hotLeads");
                 setSalesOpportunityOnly(false);
               }}
-              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
                 feedFilter === "hotLeads"
-                  ? "neu-button shadow-soft-button-pressed bg-gradient-to-r from-red-400 to-pink-400 text-white"
-                  : "neu-button shadow-soft-out text-slate-700 hover:shadow-soft-button"
+                  ? "bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-sm"
+                  : "bg-slate-100 dark:bg-gray-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-gray-600"
               }`}
             >
-              🔥 Cơ hội nóng
+              {t("hotLeads")}
             </button>
             <button
               onClick={() => {
                 setFeedFilter("marketNews");
                 setSalesOpportunityOnly(false);
               }}
-              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
                 feedFilter === "marketNews"
-                  ? "neu-button shadow-soft-button-pressed bg-gradient-to-r from-blue-400 to-purple-400 text-white"
-                  : "neu-button shadow-soft-out text-slate-700 hover:shadow-soft-button"
+                  ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-sm"
+                  : "bg-slate-100 dark:bg-gray-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-gray-600"
               }`}
             >
-              📈 Tin thị trường
+              {t("marketNews")}
             </button>
           </div>
 
           {/* Category Filter Bar */}
           {categories.length > 0 && (
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-2">
               {/* All Tab */}
               <button
                 onClick={() => setSelectedCategory(null)}
-                className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                   selectedCategory === null
-                    ? "neu-button shadow-soft-button-pressed bg-gradient-to-r from-emerald-400 to-blue-400 text-white"
-                    : "neu-button shadow-soft-out text-slate-700 hover:shadow-soft-button"
+                    ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm"
+                    : "bg-slate-100 dark:bg-gray-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-gray-600"
                 }`}
               >
                 All
               </button>
             {/* Category Tabs */}
             {categories.map((category) => (
-              <div key={category.id} className="flex items-center gap-2">
+              <div key={category.id} className="flex items-center gap-1.5">
                 <button
                   onClick={() => setSelectedCategory(category.name)}
-                  className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
                     selectedCategory === category.name
-                      ? "neu-button shadow-soft-button-pressed text-white"
-                      : "neu-button shadow-soft-out text-slate-700 hover:shadow-soft-button"
+                      ? "text-white shadow-sm"
+                      : "bg-slate-100 dark:bg-gray-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-gray-600"
                   }`}
                   style={
                     selectedCategory === category.name
-                      ? { background: `linear-gradient(135deg, ${category.color} 0%, ${category.color}dd 100%)` }
+                      ? { backgroundColor: category.color }
                       : {}
                   }
                 >
                   <span
-                    className="w-3 h-3 rounded-full"
+                    className="w-2 h-2 rounded-full"
                     style={{ backgroundColor: category.color }}
                   />
                   {category.name}
@@ -326,13 +350,13 @@ export function FeedContent({
                 <button
                   onClick={() => handleSyncCategory(category.name)}
                   disabled={syncingCategory === category.name}
-                  className="p-2 neu-icon-box rounded-lg text-slate-600 hover:text-emerald-600 transition-all active:shadow-soft-button-pressed disabled:opacity-50"
+                  className="p-1.5 border border-slate-300 dark:border-gray-600 rounded-lg text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
                   title={`Force sync ${category.name}`}
                 >
                   {syncingCategory === category.name ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   ) : (
-                    <RotateCw className="w-4 h-4" />
+                    <RotateCw className="w-3.5 h-3.5" />
                   )}
                 </button>
               </div>
@@ -342,52 +366,50 @@ export function FeedContent({
         </div>
       </div>
 
-      {/* Feed Posts - Neumorphism Style */}
+      {/* Feed Posts - Minimal */}
       {posts.length === 0 ? (
-        <div className="text-center py-20">
-          <div className="max-w-md mx-auto space-y-6">
-            <div className="w-20 h-20 neu-icon-box rounded-2xl flex items-center justify-center mx-auto shadow-soft-icon">
-              <Rss className="w-10 h-10 text-pastel-teal" />
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-12">
+          <div className="text-center max-w-md mx-auto space-y-4">
+            <div className="w-16 h-16 bg-slate-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto">
+              <Rss className="w-8 h-8 text-slate-400 dark:text-slate-500" />
             </div>
-            <div className="space-y-4">
-              <h3 className="text-2xl font-bold text-slate-800">
-                {/* 🔍 UX: Hiển thị message khác nhau tùy theo filter */}
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
                 {feedFilter === "hotLeads"
-                  ? "Chưa có cơ hội nào mới"
+                  ? t("noHotLeads")
                   : feedFilter === "marketNews"
-                  ? "Chưa có tin thị trường nào"
+                  ? t("noMarketNews")
                   : t("emptyTitle")}
               </h3>
-              <p className="text-slate-600">
-                {/* 🔍 UX: Message phù hợp với filter đang chọn */}
+              <p className="text-sm text-slate-500 dark:text-slate-400">
                 {feedFilter === "hotLeads"
-                  ? "Hiện tại chưa có bài đăng nào có điểm Intent > 70. Hãy thử sync lại hoặc chọn tab khác."
+                  ? t("noHotLeadsMessage")
                   : feedFilter === "marketNews"
-                  ? "Hiện tại chưa có bài đăng nào được phân loại là 'Tin thị trường'. Hãy thử sync lại hoặc chọn tab khác."
+                  ? t("noMarketNewsMessage")
                   : profilesCount > 0
                   ? t("emptyMessageWithProfiles", { count: profilesCount })
                   : t("emptyMessage")}
               </p>
-              {profilesCount > 0 && (
-                <button
-                  onClick={handleSync}
-                  disabled={syncing}
-                  className="px-6 py-3 neu-button bg-gradient-to-r from-emerald-400 to-blue-400 text-white rounded-full shadow-soft-button hover:shadow-soft-button-pressed active:shadow-soft-button-pressed transition-all transform active:scale-95 font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 mx-auto"
-                >
-                  {syncing ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      {t("syncing")}
-                    </>
-                  ) : (
-                    <>
-                      <RotateCw className="w-5 h-5" />
-                      {t("startScanning")}
-                    </>
-                  )}
-                </button>
-              )}
             </div>
+            {profilesCount > 0 && (
+              <button
+                onClick={handleSync}
+                disabled={syncing}
+                className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-blue-600 text-white rounded-lg shadow-sm hover:shadow-md transition-all font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 mx-auto"
+              >
+                {syncing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    {t("syncing")}
+                  </>
+                ) : (
+                  <>
+                    <RotateCw className="w-4 h-4" />
+                    {t("startScanning")}
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
       ) : (
@@ -395,18 +417,18 @@ export function FeedContent({
           {posts.map((post) => (
             <div
               key={post.id}
-              className="neu-card rounded-neu-lg shadow-soft-out hover:shadow-soft-card transition-all duration-300 p-6"
+              className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 hover:shadow-md transition-all duration-200 p-4"
             >
-              {/* Post Header - Neumorphism Style */}
-              <div className="flex items-start gap-4 mb-4">
+              {/* Post Header - Minimal */}
+              <div className="flex items-start gap-3 mb-3">
                 <div className="flex-shrink-0">
-                  <div className="w-12 h-12 neu-icon-box rounded-xl flex items-center justify-center shadow-soft-icon p-2">
+                  <div className="w-10 h-10 rounded-lg overflow-hidden">
                     <Image
                       src={getFaviconUrl(post.profile_url || "")}
                       alt={getDomainFromUrl(post.profile_url || "")}
-                      width={48}
-                      height={48}
-                      className="w-full h-full rounded-lg object-cover"
+                      width={40}
+                      height={40}
+                      className="w-full h-full object-cover"
                       loading="lazy"
                       unoptimized
                     />
@@ -414,19 +436,19 @@ export function FeedContent({
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <div>
-                        <h3 className="text-lg font-semibold text-slate-800">
+                        <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
                           {post.profile_title || "Unknown Profile"}
                         </h3>
-                        <p className="text-sm text-slate-500">
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
                           {getDomainFromUrl(post.profile_url || "")}
                         </p>
                       </div>
                       {/* Health Score Badge */}
                       {healthScores[post.profile_id] && (
                         <div
-                          className={`px-2 py-1 rounded-full text-xs font-semibold shadow-soft-out ${healthScores[post.profile_id].color.bg} ${healthScores[post.profile_id].color.text}`}
+                          className={`px-2 py-1 rounded-full text-xs font-semibold ${healthScores[post.profile_id].color.bg} ${healthScores[post.profile_id].color.text}`}
                           title={
                             healthScores[post.profile_id].status === "healthy"
                               ? "Healthy relationship (< 3 days)"
@@ -449,7 +471,7 @@ export function FeedContent({
                           // Nếu chưa có last_contacted_at, hiển thị badge "Cần chăm sóc"
                           return (
                             <div
-                              className="px-2 py-1 rounded-full text-xs font-semibold shadow-soft-out bg-red-100 text-red-700 border border-red-300 animate-pulse"
+                              className="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-300 dark:border-red-700"
                               title="Chưa từng liên hệ. Cần chăm sóc ngay!"
                             >
                               🚨 {t("needsCare", { defaultValue: "Cần chăm sóc" })}
@@ -464,7 +486,7 @@ export function FeedContent({
                         if (daysSinceContact > 7) {
                           return (
                             <div
-                              className="px-2 py-1 rounded-full text-xs font-semibold shadow-soft-out bg-red-100 text-red-700 border border-red-300"
+                              className="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-300 dark:border-red-700"
                               title={`Chưa liên hệ ${daysSinceContact} ngày. Cần chăm sóc ngay!`}
                             >
                               🚨 {t("needsCare", { defaultValue: "Cần chăm sóc" })}
@@ -483,13 +505,13 @@ export function FeedContent({
                 </div>
               </div>
 
-              {/* AI Summary - Neumorphism Style */}
+              {/* AI Summary - Minimal */}
               {post.ai_analysis && parseAIAnalysis(post.ai_analysis) && (
-                <div className="mb-4 space-y-2">
-                  <div className="bg-gradient-to-r from-pastel-mint/30 to-pastel-purple/30 rounded-lg p-3 shadow-soft-in">
+                <div className="mb-3 space-y-2">
+                  <div className="bg-gradient-to-r from-emerald-50 to-blue-50 dark:from-emerald-900/20 dark:to-blue-900/20 rounded-lg p-2.5">
                     <div className="flex items-start gap-2">
-                      <Sparkles className="w-4 h-4 text-pastel-purple flex-shrink-0 mt-0.5" />
-                      <p className="text-sm text-slate-700 font-medium">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
+                      <p className="text-xs text-slate-700 dark:text-slate-300 font-medium">
                         {parseAIAnalysis(post.ai_analysis)?.summary}
                       </p>
                     </div>
@@ -502,18 +524,18 @@ export function FeedContent({
                     if (intentScore > 70) {
                       // 🔥 Hot Lead - Màu đỏ
                       return (
-                        <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-red-500 text-white rounded-full text-xs font-semibold shadow-soft-out animate-pulse">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-500 text-white rounded-full text-xs font-semibold">
                           <span>🔥</span>
-                          <span>Hot Lead</span>
+                          <span>{t("hotLead")}</span>
                           <span className="text-red-100">({intentScore}/100)</span>
                         </div>
                       );
                     } else if (intentScore >= 40 && intentScore <= 70) {
                       // ⚡ Tiềm năng - Màu vàng
                       return (
-                        <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-yellow-500 text-yellow-900 rounded-full text-xs font-semibold shadow-soft-out">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-yellow-500 text-yellow-900 rounded-full text-xs font-semibold">
                           <span>⚡</span>
-                          <span>Tiềm năng</span>
+                          <span>{t("potential")}</span>
                           <span className="text-yellow-800">({intentScore}/100)</span>
                         </div>
                       );
@@ -523,20 +545,20 @@ export function FeedContent({
                   {/* Sales Signal Tag - Hiển thị nếu signal là "Cơ hội bán hàng" */}
                   {(parseAIAnalysis(post.ai_analysis)?.signal === "Cơ hội bán hàng" || 
                     parseAIAnalysis(post.ai_analysis)?.signal === "Sales Opportunity") && (
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full text-xs font-semibold shadow-soft-out ml-2">
-                      <AlertCircle className="w-4 h-4 text-red-600" />
-                      <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full text-xs font-semibold ml-2">
+                      <AlertCircle className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
+                      <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>
                       {t("salesOpportunity")}
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Post Content - Neumorphism Style */}
-              <div className="space-y-4">
+              {/* Post Content - Minimal */}
+              <div className="space-y-2">
                 {post.content && (
-                  <div className="neu-input rounded-lg p-4">
-                    <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
+                  <div className="rounded-lg p-3 bg-slate-50 dark:bg-gray-700/50">
+                    <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
                       {post.content}
                     </p>
                   </div>
@@ -544,12 +566,12 @@ export function FeedContent({
 
                 {/* AI Reason - Lý do AI chọn (Visual Highlighting) */}
                 {post.ai_analysis && parseAIAnalysis(post.ai_analysis)?.reason && (
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 border-l-4 border-blue-400 shadow-soft-in">
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg p-2.5 border-l-2 border-blue-400">
                     <div className="flex items-start gap-2">
-                      <Lightbulb className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                      <Lightbulb className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
                       <div className="flex-1">
-                        <p className="text-xs font-semibold text-blue-900 mb-1">Lý do AI chọn:</p>
-                        <p className="text-sm text-blue-800">
+                        <p className="text-xs font-semibold text-blue-900 dark:text-blue-300 mb-0.5">{t("aiReason")}:</p>
+                        <p className="text-xs text-blue-800 dark:text-blue-300">
                           {parseAIAnalysis(post.ai_analysis)?.reason}
                         </p>
                       </div>
@@ -558,7 +580,7 @@ export function FeedContent({
                 )}
 
                 {post.image_url && (
-                  <div className="rounded-neu-lg overflow-hidden neu-card shadow-soft-out">
+                  <div className="rounded-lg overflow-hidden border border-slate-200 dark:border-gray-700">
                     <Image
                       src={post.image_url}
                       alt={post.content || "Post image"}
@@ -572,14 +594,14 @@ export function FeedContent({
                 )}
               </div>
 
-              {/* AI Ice Breakers - Neumorphism Style */}
+              {/* AI Ice Breakers - Minimal */}
               {post.ai_suggestions && parseAISuggestions(post.ai_suggestions).length > 0 && (
-                <div className="mt-4 pt-4 border-t border-slate-200">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Lightbulb className="w-4 h-4 text-pastel-purple" />
-                    <h4 className="text-sm font-semibold text-slate-700">{t("aiSuggestions")}</h4>
+                <div className="mt-3 pt-3 border-t border-slate-200 dark:border-gray-700">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Lightbulb className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    <h4 className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t("aiSuggestions")}</h4>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                     {parseAISuggestions(post.ai_suggestions).slice(0, 3).map((suggestionText, idx) => {
                       const suggestionId = `${post.id}-${idx}`;
                       const icons = [MessageCircle, Send, Lightbulb];
@@ -592,14 +614,14 @@ export function FeedContent({
                         <button
                           key={idx}
                           onClick={() => handleCopySuggestion(suggestionText, suggestionId, post.profile_id)}
-                          className="flex items-start gap-2 p-3 neu-button rounded-lg shadow-soft-out hover:shadow-soft-button-pressed active:shadow-soft-button-pressed transition-all text-left group"
+                          className="flex items-start gap-2 p-2 border border-slate-200 dark:border-gray-700 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors text-left group"
                         >
-                          <Icon className="w-4 h-4 text-pastel-purple flex-shrink-0 mt-0.5" />
+                          <Icon className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-slate-600 mb-1">
+                            <p className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-0.5">
                               {label}
                             </p>
-                            <p className="text-xs text-slate-700 line-clamp-2">
+                            <p className="text-xs text-slate-700 dark:text-slate-300 line-clamp-2">
                               {suggestionText}
                             </p>
                             {isCopied && (
@@ -616,8 +638,8 @@ export function FeedContent({
                 </div>
               )}
 
-              {/* Post Footer - Neumorphism Style */}
-              <div className="flex items-center gap-3 mt-4 pt-4 border-t border-slate-200 flex-wrap">
+              {/* Post Footer - Minimal */}
+              <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-200 dark:border-gray-700 flex-wrap">
                 {/* Quick CRM: Copy Ice Breaker Button */}
                 {/* 🔍 UX: Hiển thị button luôn, nhưng disable nếu chưa có ai_suggestions */}
                 {(() => {
@@ -633,10 +655,10 @@ export function FeedContent({
                         }
                       }}
                       disabled={!hasSuggestions}
-                      className={`flex items-center gap-2 px-4 py-2 neu-button rounded-lg shadow-soft-button transition-all font-medium text-sm ${
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all font-medium text-xs ${
                         hasSuggestions
-                          ? "bg-gradient-to-r from-purple-400 to-pink-400 text-white hover:shadow-soft-button-pressed active:shadow-soft-button-pressed cursor-pointer"
-                          : "bg-slate-200 text-slate-500 cursor-not-allowed opacity-60"
+                          ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:opacity-90 cursor-pointer"
+                          : "bg-slate-200 dark:bg-gray-700 text-slate-500 dark:text-slate-400 cursor-not-allowed opacity-60"
                       }`}
                       title={
                         hasSuggestions
@@ -647,12 +669,12 @@ export function FeedContent({
                       {hasSuggestions ? (
                         <>
                           <MessageCircle className="w-4 h-4" />
-                          Copy Ice Breaker
+                          {t("copyIceBreaker")}
                         </>
                       ) : (
                         <>
                           <Loader2 className="w-4 h-4 animate-spin" />
-                          Đang chuẩn bị...
+                          {t("preparing")}
                         </>
                       )}
                     </button>
@@ -664,14 +686,14 @@ export function FeedContent({
                       href={post.post_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-4 py-2 neu-button text-emerald-600 hover:text-emerald-700 rounded-lg shadow-soft-button hover:shadow-soft-button-pressed active:shadow-soft-button-pressed transition-all font-medium text-sm"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors font-medium text-xs"
                     >
-                      <ExternalLink className="w-4 h-4" />
+                      <ExternalLink className="w-3.5 h-3.5" />
                       View Original
                     </a>
                     <button
                       onClick={() => handleCopyLink(post.post_url, post.id, post.profile_id)}
-                      className="flex items-center gap-2 px-4 py-2 neu-icon-box text-slate-600 hover:text-slate-800 rounded-lg shadow-soft-icon hover:shadow-soft-button transition-all active:shadow-soft-button-pressed text-sm"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-700 transition-colors text-xs"
                     >
                       {copiedId === post.id ? (
                         <>

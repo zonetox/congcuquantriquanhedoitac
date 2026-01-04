@@ -22,8 +22,10 @@ export interface Database {
           is_in_feed: boolean | null;
           last_interacted_at: string | null;
           relationship_score: number | null;
+          last_contacted_at: string | null; // Interaction Clock - khi user click Ice Breaker hoặc Copy
           notify_telegram_chat_id: string | null;
           notify_on_sales_opportunity: boolean | null;
+          last_synced_at: string | null; // Module 4.1: Thời gian sync cuối cùng (Shared Scraping)
           created_at: string;
           updated_at: string | null;
         };
@@ -39,8 +41,10 @@ export interface Database {
           is_in_feed?: boolean;
           last_interacted_at?: string | null;
           relationship_score?: number;
+          last_contacted_at?: string | null;
           notify_telegram_chat_id?: string | null;
           notify_on_sales_opportunity?: boolean;
+          last_synced_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -56,8 +60,10 @@ export interface Database {
           is_in_feed?: boolean;
           last_interacted_at?: string | null;
           relationship_score?: number;
+          last_contacted_at?: string | null;
           notify_telegram_chat_id?: string | null;
           notify_on_sales_opportunity?: boolean;
+          last_synced_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };

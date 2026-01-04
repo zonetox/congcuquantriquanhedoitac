@@ -47,7 +47,11 @@
     "addFirst": "Add Your First Profile",
     "categories": "Categories",
     "all": "All",
-    "success": "Success"
+    "success": "Success",
+    "noProfilesFound": "No profiles found",
+    "tryAdjustingSearch": "Try adjusting your search or filter",
+    "addFirstProfile": "Add your first profile to get started",
+    "upgradeToUnlock": "Upgrade to unlock"
   },
   "feed": {
     "title": "Newsfeed",
@@ -74,7 +78,20 @@
     "publicComment": "Public Comment",
     "privateMessage": "Private Message",
     "engagingQuestion": "Engaging Question",
-    "salesOpportunityOnly": "Sales Opportunities Only"
+    "salesOpportunityOnly": "Sales Opportunities Only",
+    "allPosts": "All Posts",
+    "hotLeads": "🔥 Hot Leads",
+    "marketNews": "📈 Market News",
+    "noHotLeads": "No hot leads yet",
+    "noMarketNews": "No market news yet",
+    "noHotLeadsMessage": "Currently no posts with Intent score > 70. Try syncing again or select another tab.",
+    "noMarketNewsMessage": "Currently no posts classified as 'Market News'. Try syncing again or select another tab.",
+    "needsCare": "Needs Care",
+    "hotLead": "Hot Lead",
+    "potential": "Potential",
+    "aiReason": "AI Reason",
+    "copyIceBreaker": "Copy Ice Breaker",
+    "preparing": "Preparing..."
   },
   "export": {
     "exportExcel": "Export Excel",
@@ -123,7 +140,34 @@
   "settings": {
     "title": "Settings",
     "language": "Language",
-    "selectLanguage": "Select Language"
+    "selectLanguage": "Select Language",
+    "notifications": {
+      "title": "Notification Settings",
+      "description": "Receive instant alerts when AI detects sales opportunities from your tracked profiles.",
+      "globalChatId": "Global Telegram Chat ID",
+      "chatIdPlaceholder": "Enter your Telegram Chat ID",
+      "chatIdHint": "Click on @userinfobot to get your ID. This Chat ID will be applied to all profiles.",
+      "save": "Save",
+      "test": "Test",
+      "testNotification": "Send Test Notification",
+      "testSuccess": "Test notification sent! Check your Telegram.",
+      "testError": "Please enter a Telegram Chat ID first",
+      "saveSuccess": "Global Telegram Chat ID updated for all profiles",
+      "saveError": "Please enter a Telegram Chat ID",
+      "updateSuccess": "Notification settings updated",
+      "noProfiles": "No profiles available",
+      "noProfilesDescription": "Add profiles to configure notifications",
+      "notificationsEnabled": "Notifications enabled",
+      "notificationsDisabled": "Notifications disabled",
+      "guideTitle": "How to get Telegram Chat ID:",
+      "guideStep1": "Open Telegram and search for @userinfobot",
+      "guideStep2": "Start a conversation and send /start",
+      "guideStep3": "Copy the Chat ID from the bot's response",
+      "guideStep4": "Paste it in the field above and click \"Send Test Notification\" to verify",
+      "howToGetChatId": "How to get Chat ID?",
+      "modalTitle": "How to Get Telegram Chat ID",
+      "modalClose": "Close"
+    }
   }
 }
 

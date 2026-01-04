@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import { sendTelegramAlert, sendEmailAlert, formatSalesOpportunityMessage } from "./service";
+import { sendTelegramAlert, sendEmailAlert, formatSalesOpportunityMessage, formatBatchedSalesOpportunityMessage } from "./service";
 import { logNotification } from "./monitoring";
 
 /**
@@ -220,13 +220,26 @@ export async function checkAndNotify(): Promise<{
     return true;
   });
 
-  let notificationsSent = 0;
-  const errors: string[] = [];
+  // 🔍 BATCHING NOTIFICATIONS: Group posts by chatId để gộp thành 1 tin nhắn tổng hợp
+  // Thay vì gửi 10 tin rời rạc, gộp thành 1 tin nhắn cho mỗi chatId
+  interface PostOpportunity {
+    postId: string;
+    profileId: string;
+    profileTitle: string;
+    postUrl: string | null;
+    aiSummary: string | null;
+    iceBreaker1: string | null;
+    intentScore?: number;
+  }
 
+  // Group posts by chatId
+  const opportunitiesByChatId = new Map<string, PostOpportunity[]>();
+
+  // BƯỚC 1: Collect và lock posts
+  const validPosts: Array<{ post: any; profile: any; opportunity: PostOpportunity }> = [];
+  
   for (const post of postsToNotify) {
     // FIX RACE CONDITION: Update notification_sent = true trước khi gửi
-    // Nếu update thành công (affected rows > 0), nghĩa là chưa có process nào khác đang xử lý post này
-    // Nếu update fail (affected rows = 0), nghĩa là đã có process khác đánh dấu rồi, skip
     let canProceed = true;
     try {
       const { data: updateData, error: lockError } = await supabase
@@ -259,6 +272,7 @@ export async function checkAndNotify(): Promise<{
     if (!canProceed) {
       continue; // Skip post này, đã có process khác xử lý
     }
+
     const profile = Array.isArray(post.profiles_tracked)
       ? post.profiles_tracked[0]
       : post.profiles_tracked;
@@ -277,90 +291,123 @@ export async function checkAndNotify(): Promise<{
     const signal = aiAnalysis.signal;
     if (signal !== "Cơ hội bán hàng") continue;
 
-    // Format và gửi thông báo
-    let message: string;
+    // Lấy ice breaker đầu tiên từ ai_suggestions
+    let iceBreaker1: string | null = null;
+    if (post.ai_suggestions && Array.isArray(post.ai_suggestions) && post.ai_suggestions.length > 0) {
+      iceBreaker1 = post.ai_suggestions[0];
+    }
+
+    // Collect opportunity
+    const opportunity: PostOpportunity = {
+      postId: post.id,
+      profileId: post.profile_id,
+      profileTitle: profile.title || "Unknown Profile",
+      postUrl: post.post_url,
+      aiSummary: aiAnalysis.summary || null,
+      iceBreaker1: iceBreaker1,
+      intentScore: typeof aiAnalysis.intent_score === "number" ? aiAnalysis.intent_score : undefined,
+    };
+
+    validPosts.push({ post, profile, opportunity });
+
+    // Group by chatId
+    const chatId = profile.notify_telegram_chat_id;
+    if (!opportunitiesByChatId.has(chatId)) {
+      opportunitiesByChatId.set(chatId, []);
+    }
+    opportunitiesByChatId.get(chatId)!.push(opportunity);
+  }
+
+  // BƯỚC 2: Gửi batched notifications
+  let notificationsSent = 0;
+  const errors: string[] = [];
+
+  for (const [chatId, opportunities] of opportunitiesByChatId.entries()) {
     try {
-      // Lấy ice breaker đầu tiên từ ai_suggestions
-      let iceBreaker1: string | null = null;
-      if (post.ai_suggestions && Array.isArray(post.ai_suggestions) && post.ai_suggestions.length > 0) {
-        iceBreaker1 = post.ai_suggestions[0];
-      }
+      // Format batched message
+      const batchedMessage = formatBatchedSalesOpportunityMessage(opportunities);
       
-      message = formatSalesOpportunityMessage(
-        profile.title || "Unknown Profile",
-        post.content || "",
-        post.post_url,
-        aiAnalysis.summary || null,
-        iceBreaker1
-      );
-    } catch (formatError: any) {
-      if (process.env.NODE_ENV === "development") {
-        console.error("[checkAndNotify] Error formatting message:", formatError);
+      if (!batchedMessage) {
+        continue; // Skip nếu không có message
       }
-      errors.push(`Failed to format message for post ${post.id}: ${formatError.message || "Unknown error"}`);
-      continue; // Skip this post
-    }
 
-    // Gửi thông báo Telegram
-    let telegramResult: { success: boolean; error: string | null } | null = null;
-    if (profile.notify_telegram_chat_id) {
-      try {
-        telegramResult = await sendTelegramAlert(message, profile.notify_telegram_chat_id);
-        
-        // Log notification history
-        await logNotification(
-          user.id,
-          post.id,
-          post.profile_id,
-          "telegram",
-          profile.notify_telegram_chat_id,
-          message,
-          telegramResult.success ? "sent" : "failed",
-          telegramResult.error || null
-        ).catch((err) => {
-          if (process.env.NODE_ENV === "development") {
-            console.warn("[checkAndNotify] Failed to log notification:", err);
+      // Gửi thông báo Telegram (1 tin nhắn cho tất cả opportunities của chatId này)
+      const telegramResult = await sendTelegramAlert(batchedMessage, chatId);
+
+      if (telegramResult.success) {
+        // Đánh dấu tất cả posts đã được gửi
+        notificationsSent += opportunities.length;
+
+        // Log notification history cho từng post
+        for (const opp of opportunities) {
+          await logNotification(
+            user.id,
+            opp.postId,
+            opp.profileId,
+            "telegram",
+            chatId,
+            batchedMessage,
+            "sent",
+            null
+          ).catch((err) => {
+            if (process.env.NODE_ENV === "development") {
+              console.warn("[checkAndNotify] Failed to log notification:", err);
+            }
+          });
+        }
+
+        if (process.env.NODE_ENV === "development") {
+          console.log(`[checkAndNotify] Sent batched notification to ${chatId}: ${opportunities.length} opportunities`);
+        }
+      } else {
+        // Nếu gửi fail, rollback notification_sent = false cho tất cả posts
+        for (const opp of opportunities) {
+          try {
+            await supabase
+              .from("profile_posts")
+              .update({ notification_sent: false })
+              .eq("id", opp.postId);
+          } catch (rollbackErr: any) {
+            if (process.env.NODE_ENV === "development") {
+              console.warn("[checkAndNotify] Error rolling back notification_sent:", rollbackErr);
+            }
           }
-        });
-      } catch (telegramError: any) {
-        if (process.env.NODE_ENV === "development") {
-          console.error("[checkAndNotify] Unexpected error calling sendTelegramAlert:", telegramError);
+
+          // Log failed notification
+          await logNotification(
+            user.id,
+            opp.postId,
+            opp.profileId,
+            "telegram",
+            chatId,
+            batchedMessage,
+            "failed",
+            telegramResult.error || "Unknown error"
+          ).catch(() => {});
         }
-        telegramResult = { success: false, error: telegramError.message || "Unknown error" };
-        
-        // Log failed notification
-        await logNotification(
-          user.id,
-          post.id,
-          post.profile_id,
-          "telegram",
-          profile.notify_telegram_chat_id,
-          message,
-          "failed",
-          telegramError.message || "Unknown error"
-        ).catch(() => {});
+
+        errors.push(`Failed to send batched notification to ${chatId}: ${telegramResult.error}`);
       }
-    }
+    } catch (telegramError: any) {
+      if (process.env.NODE_ENV === "development") {
+        console.error("[checkAndNotify] Unexpected error sending batched notification:", telegramError);
+      }
 
-    // Gửi thông báo Email (nếu có email trong profile settings - tương lai)
-    // TODO: Thêm email field vào profiles_tracked nếu cần
-
-    // Đánh dấu kết quả
-    if (telegramResult?.success) {
-      notificationsSent++;
-    } else if (telegramResult) {
-      // Nếu gửi fail, rollback notification_sent = false để có thể retry sau
-      try {
-        await supabase
-          .from("profile_posts")
-          .update({ notification_sent: false })
-          .eq("id", post.id);
-      } catch (rollbackErr: any) {
-        if (process.env.NODE_ENV === "development") {
-          console.warn("[checkAndNotify] Error rolling back notification_sent:", rollbackErr);
+      // Rollback tất cả posts trong batch này
+      for (const opp of opportunities) {
+        try {
+          await supabase
+            .from("profile_posts")
+            .update({ notification_sent: false })
+            .eq("id", opp.postId);
+        } catch (rollbackErr: any) {
+          if (process.env.NODE_ENV === "development") {
+            console.warn("[checkAndNotify] Error rolling back notification_sent:", rollbackErr);
+          }
         }
       }
-      errors.push(`Failed to notify for post ${post.id}: ${telegramResult.error}`);
+
+      errors.push(`Failed to send batched notification to ${chatId}: ${telegramError.message || "Unknown error"}`);
     }
   }
 

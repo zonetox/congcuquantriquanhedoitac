@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Plus } from "lucide-react";
-import { ProfileGrid } from "@/components/ProfileGrid";
+import { Plus, Search, X } from "lucide-react";
+import { ProfileTable } from "@/components/ProfileTable";
 import { AddProfileModal } from "@/components/AddProfileModal";
 import { EditProfileModal } from "@/components/EditProfileModal";
 import { ProfileDetailsModal } from "@/components/ProfileDetailsModal";
@@ -17,7 +17,7 @@ interface DashboardContentProps {
   hasValidPremium?: boolean; // is_premium === true HOẶC đang trong trial
   trialExpired?: boolean; // Trial đã hết hạn và không phải premium
   currentProfileCount: number;
-  categories?: Category[]; // Categories để pass vào ProfileGrid
+  categories?: Category[]; // Categories để pass vào ProfileTable
 }
 
 export function DashboardContent({ profiles, isPremium, hasValidPremium = false, trialExpired = false, currentProfileCount, categories = [] }: DashboardContentProps) {
@@ -27,6 +27,7 @@ export function DashboardContent({ profiles, isPremium, hasValidPremium = false,
   const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
   const [detailsProfile, setDetailsProfile] = useState<Profile | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null); // null = All
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Default categories với màu
   const defaultCategories: Record<string, string> = {
@@ -70,51 +71,88 @@ export function DashboardContent({ profiles, isPremium, hasValidPremium = false,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categories]);
 
-  // Filter profiles theo category được chọn
+  // Filter profiles theo category và search query
   const filteredProfiles = useMemo(() => {
-    if (!selectedCategory) return profiles;
-    return profiles.filter((p) => (p.category || "General") === selectedCategory);
-  }, [profiles, selectedCategory]);
+    let filtered = profiles;
+
+    // Filter by category
+    if (selectedCategory) {
+      filtered = filtered.filter((p) => (p.category || "General") === selectedCategory);
+    }
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (p) =>
+          p.title.toLowerCase().includes(query) ||
+          p.url.toLowerCase().includes(query) ||
+          (p.notes && p.notes.toLowerCase().includes(query)) ||
+          (p.category && p.category.toLowerCase().includes(query))
+      );
+    }
+
+    return filtered;
+  }, [profiles, selectedCategory, searchQuery]);
 
   return (
-    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header Section - Neumorphism Style */}
-      <div className="mb-8">
+    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      {/* Header Section - Minimal */}
+      <div className="mb-6">
         <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
           <div>
-            <h2 className="text-3xl font-bold text-slate-800">
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
               {t("title")}
             </h2>
-            <p className="text-slate-600 mt-1">
+            <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5">
               {t("subtitle", { count: profiles.length })}
             </p>
           </div>
           <div className="flex items-center gap-3">
             {!isPremium && <UpgradeButton />}
-            {/* Add Profile Button - Neumorphism Style */}
+            {/* Add Profile Button - Single button only */}
             <button
               onClick={() => setIsModalOpen(true)}
-              className="flex items-center gap-2 px-6 py-3 neu-button bg-gradient-to-r from-emerald-400 to-blue-400 text-white rounded-full shadow-soft-button hover:shadow-soft-button-pressed active:shadow-soft-button-pressed transition-all transform active:scale-95 font-medium"
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-blue-600 text-white rounded-lg shadow-sm hover:shadow-md transition-all font-medium text-sm"
             >
-              <Plus className="w-5 h-5" />
+              <Plus className="w-4 h-4" />
               <span>{tCommon("addProfile")}</span>
             </button>
           </div>
         </div>
 
-        {/* Category Tabs */}
-        <div className="flex flex-wrap gap-2 mt-6">
+        {/* Search Bar - Fixed */}
+        <div className="mb-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search profiles by name, URL, notes, or category..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-10 py-2.5 border border-slate-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Category Filter Bar - Horizontal, Compact */}
+        <div className="flex items-center gap-2 flex-wrap">
           {/* All Tab */}
           <button
             onClick={() => setSelectedCategory(null)}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
               selectedCategory === null
-                ? "neu-card shadow-soft-out text-slate-800"
-                : "text-slate-600 hover:bg-slate-100"
+                ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900"
+                : "bg-slate-100 dark:bg-gray-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-gray-600"
             }`}
-            style={{
-              backgroundColor: selectedCategory === null ? "rgba(255, 255, 255, 0.7)" : undefined,
-            }}
           >
             {t("all")} ({profiles.length})
           </button>
@@ -129,10 +167,10 @@ export function DashboardContent({ profiles, isPremium, hasValidPremium = false,
               <button
                 key={catName}
                 onClick={() => setSelectedCategory(catName)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                   isActive
-                    ? "text-white shadow-soft-out"
-                    : "text-slate-600 hover:bg-slate-100"
+                    ? "text-white shadow-sm"
+                    : "bg-slate-100 dark:bg-gray-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-gray-600"
                 }`}
                 style={{
                   backgroundColor: isActive ? color : undefined,
@@ -145,25 +183,17 @@ export function DashboardContent({ profiles, isPremium, hasValidPremium = false,
         </div>
       </div>
 
-      {/* Profiles Grid */}
-      <ProfileGrid 
+      {/* Profiles Table */}
+      <ProfileTable 
         profiles={filteredProfiles} 
         isPremium={isPremium}
         hasValidPremium={hasValidPremium}
         trialExpired={trialExpired}
         categories={categories}
+        searchQuery={searchQuery}
         onEdit={setEditingProfile}
         onDetails={setDetailsProfile}
       />
-
-      {/* Floating Add Button - Neumorphism Style */}
-      <button
-        onClick={() => setIsModalOpen(true)}
-        className="fixed bottom-8 right-8 w-16 h-16 neu-button bg-gradient-to-r from-emerald-400 to-blue-400 text-white rounded-full shadow-soft-button hover:shadow-soft-button-pressed active:shadow-soft-button-pressed transition-all transform active:scale-95 flex items-center justify-center z-40 group"
-        title="Add New Profile"
-      >
-        <Plus className="w-8 h-8 group-hover:rotate-90 transition-transform duration-300" />
-      </button>
 
       {/* Add Profile Modal */}
       <AddProfileModal

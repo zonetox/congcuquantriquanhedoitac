@@ -2,7 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin } from "@/lib/membership";
+import { getUserMembership } from "@/lib/membership";
 import { revalidatePath } from "next/cache";
 
 export interface ApiKey {
@@ -23,8 +23,8 @@ export async function getAllApiKeys(): Promise<{
   data: ApiKey[] | null;
   error: string | null;
 }> {
-  const isUserAdmin = await isAdmin();
-  if (!isUserAdmin) {
+  const membership = await getUserMembership();
+  if (!membership.isAdmin) {
     return {
       data: null,
       error: "Unauthorized. Admin access required.",
@@ -60,8 +60,8 @@ export async function bulkImportApiKeys(
   failed: number;
   error: string | null;
 }> {
-  const isUserAdmin = await isAdmin();
-  if (!isUserAdmin) {
+  const membership = await getUserMembership();
+  if (!membership.isAdmin) {
     return {
       success: 0,
       failed: 0,
@@ -122,8 +122,8 @@ export async function toggleApiKeyStatus(
   success: boolean;
   error: string | null;
 }> {
-  const isUserAdmin = await isAdmin();
-  if (!isUserAdmin) {
+  const membership = await getUserMembership();
+  if (!membership.isAdmin) {
     return {
       success: false,
       error: "Unauthorized. Admin access required.",
@@ -157,8 +157,8 @@ export async function deleteApiKey(keyId: string): Promise<{
   success: boolean;
   error: string | null;
 }> {
-  const isUserAdmin = await isAdmin();
-  if (!isUserAdmin) {
+  const membership = await getUserMembership();
+  if (!membership.isAdmin) {
     return {
       success: false,
       error: "Unauthorized. Admin access required.",

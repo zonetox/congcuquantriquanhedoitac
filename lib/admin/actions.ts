@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
-import { isAdmin } from "@/lib/membership";
+import { getUserMembership } from "@/lib/membership";
 
 /**
  * Lấy tất cả users (chỉ Admin)
@@ -20,9 +20,9 @@ export async function getAllUsers(): Promise<{
   }> | null;
   error: string | null;
 }> {
-  // Kiểm tra admin
-  const isUserAdmin = await isAdmin();
-  if (!isUserAdmin) {
+  // Kiểm tra admin (dùng getUserMembership để tối ưu)
+  const membership = await getUserMembership();
+  if (!membership.isAdmin) {
     return {
       data: null,
       error: "Unauthorized. Admin access required.",
@@ -62,9 +62,9 @@ export async function updateUser(
   success: boolean;
   error: string | null;
 }> {
-  // Kiểm tra admin
-  const isUserAdmin = await isAdmin();
-  if (!isUserAdmin) {
+  // Kiểm tra admin (dùng getUserMembership để tối ưu)
+  const membership = await getUserMembership();
+  if (!membership.isAdmin) {
     return {
       success: false,
       error: "Unauthorized. Admin access required.",
@@ -117,9 +117,9 @@ export async function deleteUser(userId: string): Promise<{
   success: boolean;
   error: string | null;
 }> {
-  // Kiểm tra admin
-  const isUserAdmin = await isAdmin();
-  if (!isUserAdmin) {
+  // Kiểm tra admin (dùng getUserMembership để tối ưu)
+  const membership = await getUserMembership();
+  if (!membership.isAdmin) {
     return {
       success: false,
       error: "Unauthorized. Admin access required.",
@@ -177,9 +177,9 @@ export async function updateProfile(
   success: boolean;
   error: string | null;
 }> {
-  // Kiểm tra admin
-  const isUserAdmin = await isAdmin();
-  if (!isUserAdmin) {
+  // Kiểm tra admin (dùng getUserMembership để tối ưu)
+  const membership = await getUserMembership();
+  if (!membership.isAdmin) {
     return {
       success: false,
       error: "Unauthorized. Admin access required.",
@@ -239,9 +239,9 @@ export async function deleteProfileAsAdmin(profileId: string): Promise<{
   success: boolean;
   error: string | null;
 }> {
-  // Kiểm tra admin
-  const isUserAdmin = await isAdmin();
-  if (!isUserAdmin) {
+  // Kiểm tra admin (dùng getUserMembership để tối ưu)
+  const membership = await getUserMembership();
+  if (!membership.isAdmin) {
     return {
       success: false,
       error: "Unauthorized. Admin access required.",

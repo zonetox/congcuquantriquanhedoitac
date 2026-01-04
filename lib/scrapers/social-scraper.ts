@@ -352,6 +352,38 @@ export async function saveScrapedPosts(
         }
       }
 
+      // 🔍 SHARED AI: Check post_url trên toàn bộ database để copy ai_analysis nếu đã có
+      // Nếu post này đã được analyze bởi user khác (cùng post_url), copy kết quả
+      if (postId && post.link) {
+        // Tìm post khác có cùng post_url nhưng khác profile_id (có thể từ user khác)
+        const { data: existingPostWithSameUrl } = await supabase
+          .from("profile_posts")
+          .select("ai_analysis, ai_suggestions")
+          .eq("post_url", post.link)
+          .neq("id", postId) // Khác post hiện tại
+          .not("ai_analysis", "is", null) // Có ai_analysis
+          .limit(1)
+          .maybeSingle();
+
+        // Nếu tìm thấy post có cùng post_url và đã có AI analysis, copy sang post mới
+        if (existingPostWithSameUrl?.ai_analysis && typeof existingPostWithSameUrl.ai_analysis === "object") {
+          // Copy AI analysis từ post cũ sang post mới (Shared AI - tiết kiệm 100% chi phí)
+          await supabase
+            .from("profile_posts")
+            .update({
+              ai_analysis: existingPostWithSameUrl.ai_analysis,
+              ai_suggestions: existingPostWithSameUrl.ai_suggestions || null,
+            })
+            .eq("id", postId);
+
+          if (process.env.NODE_ENV === "development") {
+            console.log(`[SHARED AI] Copied AI analysis from existing post with same URL: ${post.link}`);
+          }
+          // Đã copy AI analysis, không cần thêm vào queue
+          continue;
+        }
+      }
+
       // Collect posts cần AI analysis (sẽ xử lý batch sau)
       // 🔍 EFFICIENCY: Chỉ gửi AI những bài có text đủ dài (> 20 ký tự) để tiết kiệm chi phí
       // Những bài chỉ có ảnh hoặc quá ngắn thì bỏ qua

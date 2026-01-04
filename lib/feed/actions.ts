@@ -188,7 +188,7 @@ export async function syncFeed(): Promise<{
     // Lấy tất cả profiles có is_in_feed = true
     const { data: profiles, error: profilesError } = await supabase
       .from("profiles_tracked")
-      .select("id, title, url, last_synced_at")
+      .select("id, title, url, last_synced_at, is_syncing")
       .eq("user_id", user.id)
       .eq("is_in_feed", true);
 
@@ -287,13 +287,38 @@ export async function syncFeed(): Promise<{
     // Fetch posts từ mỗi profile cần sync
     console.log(`[SYNC FEED] Starting sync for ${profilesToSync.length} profiles (${profiles.length - profilesToSync.length} skipped due to recent sync)`);
     for (const profile of profilesToSync) {
+      // 🔍 RACE CONDITION: Check và set is_syncing flag để tránh 2 users cùng sync 1 profile
+      // Check xem profile có đang được sync bởi user khác không
+      const { data: profileCheck } = await supabase
+        .from("profiles_tracked")
+        .select("is_syncing")
+        .eq("id", profile.id)
+        .single();
+
+      if (profileCheck?.is_syncing) {
+        // Profile đang được sync bởi user khác, skip
+        console.log(`[SYNC FEED] Profile "${profile.title}" (${profile.id}) is being synced by another user, skipping`);
+        continue;
+      }
+
+      // Set is_syncing = true để lock profile
+      const { error: lockError } = await supabase
+        .from("profiles_tracked")
+        .update({ is_syncing: true })
+        .eq("id", profile.id);
+
+      if (lockError) {
+        console.error(`[SYNC FEED] Failed to set lock for profile "${profile.title}" (${profile.id}): ${lockError.message}`);
+        continue;
+      }
+
       try {
         // 🔍 API LEAK CHECK: Log trước khi gọi API
         console.log(`[SYNC FEED] Calling API for profile "${profile.title}" (${profile.id})`);
         
         // Fetch latest posts từ scraper (Module 4.4: Scraper Engine thực tế)
         const scrapedResult = await fetchSocialPosts(profile.url);
-        
+      
         // 🔍 RESILIENCE: Xử lý lỗi API (404, 500, etc.) - log và không block sync của profiles khác
         if (scrapedResult.error) {
           const errorMsg = `${profile.title}: ${scrapedResult.error}`;
@@ -302,7 +327,14 @@ export async function syncFeed(): Promise<{
           // Log chi tiết lỗi để debugging
           console.error(`[SYNC FEED ERROR] Profile "${profile.title}" (${profile.id}): ${scrapedResult.error}`);
           
-          // Không block sync của profiles khác - continue để sync profile tiếp theo
+          // Vẫn update last_synced_at và clear lock
+          await supabase
+            .from("profiles_tracked")
+            .update({ 
+              last_synced_at: new Date().toISOString(),
+              is_syncing: false
+            })
+            .eq("id", profile.id);
           continue;
         }
         
@@ -311,10 +343,13 @@ export async function syncFeed(): Promise<{
           if (process.env.NODE_ENV === "development") {
             console.log(`[SYNC FEED] Profile "${profile.title}" (${profile.id}): No new posts found`);
           }
-          // Vẫn update last_synced_at để đánh dấu đã check
+          // Vẫn update last_synced_at và clear lock
           await supabase
             .from("profiles_tracked")
-            .update({ last_synced_at: new Date().toISOString() })
+            .update({ 
+              last_synced_at: new Date().toISOString(),
+              is_syncing: false
+            })
             .eq("id", profile.id);
           continue;
         }
@@ -332,17 +367,25 @@ export async function syncFeed(): Promise<{
           errors.push(...saveResult.errors.map((e) => `${profile.title}: ${e}`));
         }
 
-        // Update last_synced_at sau khi sync thành công
+        // Update last_synced_at sau khi sync thành công và clear lock
         await supabase
           .from("profiles_tracked")
-          .update({ last_synced_at: new Date().toISOString() })
+          .update({ 
+            last_synced_at: new Date().toISOString(),
+            is_syncing: false
+          })
           .eq("id", profile.id);
       } catch (error: any) {
         // 🔍 RESILIENCE: Catch và log lỗi, không block sync của profiles khác
         const errorMsg = `${profile.title}: ${error.message || "Unknown error"}`;
         errors.push(errorMsg);
         console.error(`[SYNC FEED EXCEPTION] Profile "${profile.title}" (${profile.id}): ${error.message || "Unknown error"}`, error);
-        // Continue để sync profile tiếp theo
+        
+        // Clear is_syncing flag ngay cả khi có lỗi
+        await supabase
+          .from("profiles_tracked")
+          .update({ is_syncing: false })
+          .eq("id", profile.id);
       }
     }
 
@@ -563,7 +606,7 @@ export async function syncFeedByCategory(
     // Lấy profiles có is_in_feed = true và category (nếu có)
     let profilesQuery = supabase
       .from("profiles_tracked")
-      .select("id, title, url, category, last_synced_at")
+      .select("id, title, url, category, last_synced_at, is_syncing")
       .eq("user_id", user.id)
       .eq("is_in_feed", true);
 
@@ -669,6 +712,31 @@ export async function syncFeedByCategory(
     // Fetch posts từ mỗi profile cần sync
     console.log(`[SYNC FEED BY CATEGORY] Starting sync for ${profilesToSync.length} profiles (${profiles.length - profilesToSync.length} skipped due to recent sync)`);
     for (const profile of profilesToSync) {
+      // 🔍 RACE CONDITION: Check và set is_syncing flag để tránh 2 users cùng sync 1 profile
+      // Check xem profile có đang được sync bởi user khác không
+      const { data: profileCheck } = await supabase
+        .from("profiles_tracked")
+        .select("is_syncing")
+        .eq("id", profile.id)
+        .single();
+
+      if (profileCheck?.is_syncing) {
+        // Profile đang được sync bởi user khác, skip
+        console.log(`[SYNC FEED BY CATEGORY] Profile "${profile.title}" (${profile.id}) is being synced by another user, skipping`);
+        continue;
+      }
+
+      // Set is_syncing = true để lock profile
+      const { error: lockError } = await supabase
+        .from("profiles_tracked")
+        .update({ is_syncing: true })
+        .eq("id", profile.id);
+
+      if (lockError) {
+        console.error(`[SYNC FEED BY CATEGORY] Failed to set lock for profile "${profile.title}" (${profile.id}): ${lockError.message}`);
+        continue;
+      }
+
       try {
         // 🔍 API LEAK CHECK: Log trước khi gọi API
         console.log(`[SYNC FEED BY CATEGORY] Calling API for profile "${profile.title}" (${profile.id})`);
@@ -684,7 +752,14 @@ export async function syncFeedByCategory(
           // Log chi tiết lỗi để debugging
           console.error(`[SYNC FEED BY CATEGORY ERROR] Profile "${profile.title}" (${profile.id}): ${scrapedResult.error}`);
           
-          // Không block sync của profiles khác - continue để sync profile tiếp theo
+          // Vẫn update last_synced_at và clear lock
+          await supabase
+            .from("profiles_tracked")
+            .update({ 
+              last_synced_at: new Date().toISOString(),
+              is_syncing: false
+            })
+            .eq("id", profile.id);
           continue;
         }
         
@@ -693,10 +768,13 @@ export async function syncFeedByCategory(
           if (process.env.NODE_ENV === "development") {
             console.log(`[SYNC FEED BY CATEGORY] Profile "${profile.title}" (${profile.id}): No new posts found`);
           }
-          // Vẫn update last_synced_at để đánh dấu đã check
+          // Vẫn update last_synced_at và clear lock
           await supabase
             .from("profiles_tracked")
-            .update({ last_synced_at: new Date().toISOString() })
+            .update({ 
+              last_synced_at: new Date().toISOString(),
+              is_syncing: false
+            })
             .eq("id", profile.id);
           continue;
         }
@@ -714,17 +792,25 @@ export async function syncFeedByCategory(
           errors.push(...saveResult.errors.map((e) => `${profile.title}: ${e}`));
         }
 
-        // Update last_synced_at
+        // Update last_synced_at sau khi sync thành công và clear lock
         await supabase
           .from("profiles_tracked")
-          .update({ last_synced_at: new Date().toISOString() })
+          .update({ 
+            last_synced_at: new Date().toISOString(),
+            is_syncing: false
+          })
           .eq("id", profile.id);
       } catch (error: any) {
         // 🔍 RESILIENCE: Catch và log lỗi, không block sync của profiles khác
         const errorMsg = `${profile.title}: ${error.message || "Unknown error"}`;
         errors.push(errorMsg);
         console.error(`[SYNC FEED BY CATEGORY EXCEPTION] Profile "${profile.title}" (${profile.id}): ${error.message || "Unknown error"}`, error);
-        // Continue để sync profile tiếp theo
+        
+        // Clear is_syncing flag ngay cả khi có lỗi
+        await supabase
+          .from("profiles_tracked")
+          .update({ is_syncing: false })
+          .eq("id", profile.id);
       }
     }
 

@@ -47,7 +47,11 @@
     "addFirst": "Thêm hồ sơ đầu tiên",
     "categories": "Danh mục",
     "all": "Tất cả",
-    "success": "Thành công"
+    "success": "Thành công",
+    "noProfilesFound": "Không tìm thấy hồ sơ",
+    "tryAdjustingSearch": "Thử điều chỉnh tìm kiếm hoặc bộ lọc",
+    "addFirstProfile": "Thêm hồ sơ đầu tiên để bắt đầu",
+    "upgradeToUnlock": "Nâng cấp để mở khóa"
   },
   "feed": {
     "title": "Bảng tin",
@@ -74,7 +78,20 @@
     "linkCopied": "Đã sao chép liên kết!",
     "noLink": "Không có liên kết",
     "syncSuccess": "Đã đồng bộ! Tạo {count} bài đăng mới.",
-    "salesOpportunityOnly": "Chỉ xem Cơ hội bán hàng"
+    "salesOpportunityOnly": "Chỉ xem Cơ hội bán hàng",
+    "allPosts": "Tất cả bài đăng",
+    "hotLeads": "🔥 Cơ hội nóng",
+    "marketNews": "📈 Tin thị trường",
+    "noHotLeads": "Chưa có cơ hội nào mới",
+    "noMarketNews": "Chưa có tin thị trường nào",
+    "noHotLeadsMessage": "Hiện tại chưa có bài đăng nào có điểm Intent > 70. Hãy thử sync lại hoặc chọn tab khác.",
+    "noMarketNewsMessage": "Hiện tại chưa có bài đăng nào được phân loại là 'Tin thị trường'. Hãy thử sync lại hoặc chọn tab khác.",
+    "needsCare": "Cần chăm sóc",
+    "hotLead": "Hot Lead",
+    "potential": "Tiềm năng",
+    "aiReason": "Lý do AI chọn",
+    "copyIceBreaker": "Copy Ice Breaker",
+    "preparing": "Đang chuẩn bị..."
   },
   "export": {
     "exportExcel": "Xuất Excel",
@@ -123,7 +140,34 @@
   "settings": {
     "title": "Cài đặt",
     "language": "Ngôn ngữ",
-    "selectLanguage": "Chọn ngôn ngữ"
+    "selectLanguage": "Chọn ngôn ngữ",
+    "notifications": {
+      "title": "Cấu hình thông báo",
+      "description": "Nhận cảnh báo tức thì khi AI phát hiện cơ hội bán hàng từ các profile bạn theo dõi.",
+      "globalChatId": "Global Telegram Chat ID",
+      "chatIdPlaceholder": "Enter your Telegram Chat ID",
+      "chatIdHint": "Nhấn vào @userinfobot để lấy ID của bạn. Chat ID này sẽ được áp dụng cho tất cả profiles.",
+      "save": "Save",
+      "test": "Test",
+      "testNotification": "Gửi tin thử nghiệm",
+      "testSuccess": "Test notification sent! Check your Telegram.",
+      "testError": "Please enter a Telegram Chat ID first",
+      "saveSuccess": "Global Telegram Chat ID updated for all profiles",
+      "saveError": "Please enter a Telegram Chat ID",
+      "updateSuccess": "Notification settings updated",
+      "noProfiles": "No profiles available",
+      "noProfilesDescription": "Add profiles to configure notifications",
+      "notificationsEnabled": "Notifications enabled",
+      "notificationsDisabled": "Notifications disabled",
+      "guideTitle": "Hướng dẫn lấy Telegram Chat ID:",
+      "guideStep1": "Mở Telegram và tìm @userinfobot",
+      "guideStep2": "Bắt đầu cuộc trò chuyện và gửi /start",
+      "guideStep3": "Sao chép Chat ID từ phản hồi của bot",
+      "guideStep4": "Dán vào ô trên và nhấn \"Gửi tin thử nghiệm\" để xác nhận",
+      "howToGetChatId": "Cách lấy Chat ID?",
+      "modalTitle": "Hướng dẫn lấy Telegram Chat ID",
+      "modalClose": "Đóng"
+    }
   }
 }
 

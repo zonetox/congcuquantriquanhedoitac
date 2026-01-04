@@ -298,7 +298,7 @@ export async function sendEmailAlert(
 }
 
 /**
- * Format message cho Sales Opportunity alert
+ * Format message cho Sales Opportunity alert (single post)
  */
 export function formatSalesOpportunityMessage(
   profileTitle: string,
@@ -321,5 +321,58 @@ export function formatSalesOpportunityMessage(
 💡 *Gợi ý:* ${iceBreaker}
 
 🔗 ${linkText}`;
+}
+
+/**
+ * Format message cho Batching Notifications (multiple Hot Leads)
+ * Gộp nhiều cơ hội thành 1 tin nhắn tổng hợp
+ */
+export function formatBatchedSalesOpportunityMessage(
+  opportunities: Array<{
+    profileTitle: string;
+    postUrl: string | null;
+    aiSummary: string | null;
+    iceBreaker1: string | null;
+    intentScore?: number;
+  }>
+): string {
+  if (opportunities.length === 0) {
+    return "";
+  }
+
+  if (opportunities.length === 1) {
+    // Nếu chỉ có 1, dùng format đơn giản
+    const opp = opportunities[0];
+    const summary = opp.aiSummary || "New post detected";
+    const iceBreaker = opp.iceBreaker1 || "Hãy liên hệ để tìm hiểu thêm";
+    const url = opp.postUrl || "N/A";
+    const linkText = url && url !== "N/A" ? `[Mở bài viết](${url})` : "N/A";
+    
+    return `🚀 *PARTNER CENTER - CƠ HỘI MỚI*
+
+👤 *Khách hàng:* ${opp.profileTitle}
+📝 *Tóm tắt:* ${summary}
+💡 *Gợi ý:* ${iceBreaker}
+
+🔗 ${linkText}`;
+  }
+
+  // Nếu có nhiều hơn 1, format tổng hợp
+  let message = `🚀 *PARTNER CENTER - ${opportunities.length} CƠ HỘI MỚI*\n\n`;
+  
+  opportunities.forEach((opp, index) => {
+    const summary = opp.aiSummary || "New post detected";
+    const url = opp.postUrl || "N/A";
+    const linkText = url && url !== "N/A" ? `[Xem bài viết](${url})` : "N/A";
+    const intentBadge = opp.intentScore && opp.intentScore > 70 ? "🔥" : "⚡";
+    
+    message += `${index + 1}. ${intentBadge} *${opp.profileTitle}*\n`;
+    message += `   📝 ${summary}\n`;
+    message += `   🔗 ${linkText}\n\n`;
+  });
+
+  message += `💡 *Gợi ý:* Hãy kiểm tra từng cơ hội và liên hệ ngay để không bỏ lỡ!`;
+
+  return message;
 }
 

@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { Target, Menu, X, LayoutDashboard, Settings, Shield, Rss } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
-import { LanguageSelector } from "./LanguageSelector";
+import { UserMenu } from "./UserMenu";
 
 interface HeaderProps {
   userEmail?: string;
@@ -34,28 +34,21 @@ export function Header({ userEmail, isPremium, isAdmin, currentProfileCount = 0,
 
   return (
     <div>
-      {/* Desktop Header */}
+      {/* Desktop Header - 64px height */}
       <header className="hidden lg:block bg-white dark:bg-gray-800 border-b border-slate-200 dark:border-gray-700 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <Link href="/" className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-emerald-600 to-blue-600 rounded-lg flex items-center justify-center">
-                <Target className="w-6 h-6 text-white" />
+            {/* Logo - Minimal */}
+            <Link href="/" className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-gradient-to-br from-emerald-600 to-blue-600 rounded-lg flex items-center justify-center">
+                <Target className="w-5 h-5 text-white" />
               </div>
-              <div>
-                <h1 className="text-xl font-bold text-slate-900 dark:text-white">
-                  Partner Center
-                </h1>
-                {userEmail && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {userEmail}
-                  </p>
-                )}
-              </div>
+              <h1 className="text-lg font-bold text-slate-900 dark:text-white">
+                Partner Center
+              </h1>
             </Link>
 
-            {/* Navigation */}
+            {/* Navigation - Minimal */}
             <nav className="flex items-center gap-1">
               {navigation.map((item) => {
                 const isActive = pathname === item.href;
@@ -64,7 +57,7 @@ export function Header({ userEmail, isPremium, isAdmin, currentProfileCount = 0,
                     key={item.name}
                     href={item.href}
                     className={cn(
-                      "flex items-center gap-2 px-4 py-2 rounded-lg transition-colors",
+                      "flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm",
                       isActive
                         ? "bg-gradient-to-r from-emerald-600 to-blue-600 text-white"
                         : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-gray-700"
@@ -79,7 +72,7 @@ export function Header({ userEmail, isPremium, isAdmin, currentProfileCount = 0,
                 <Link
                   href="/admin"
                   className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-lg transition-colors",
+                    "flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm",
                     pathname === "/admin"
                       ? "bg-gradient-to-r from-red-500 to-orange-500 text-white"
                       : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-gray-700"
@@ -89,94 +82,61 @@ export function Header({ userEmail, isPremium, isAdmin, currentProfileCount = 0,
                   <span className="font-medium">{t("admin")}</span>
                 </Link>
               )}
-              <LanguageSelector />
+              {/* User Menu Dropdown */}
+              <UserMenu userEmail={userEmail} isPremium={isPremium} />
             </nav>
           </div>
         </div>
       </header>
 
-      {/* Mobile Header */}
+      {/* Mobile Header - 64px height */}
       <header className="lg:hidden bg-white dark:bg-gray-800 border-b border-slate-200 dark:border-gray-700 shadow-sm">
         <div className="px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
-            <Link href="/" className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-emerald-600 to-blue-600 rounded-lg flex items-center justify-center">
-                <Target className="w-6 h-6 text-white" />
+            <Link href="/" className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-gradient-to-br from-emerald-600 to-blue-600 rounded-lg flex items-center justify-center">
+                <Target className="w-5 h-5 text-white" />
               </div>
-              <div>
-                <h1 className="text-lg font-bold text-slate-900 dark:text-white">
-                  Partner Center
-                </h1>
-              </div>
+              <h1 className="text-lg font-bold text-slate-900 dark:text-white">
+                Partner Center
+              </h1>
             </Link>
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 text-slate-600 dark:text-slate-400"
-            >
-              {mobileMenuOpen ? (
-                <X className="w-6 h-6" />
-              ) : (
-                <Menu className="w-6 h-6" />
-              )}
-            </button>
+            <div className="flex items-center gap-2">
+              <UserMenu userEmail={userEmail} isPremium={isPremium} />
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                {mobileMenuOpen ? (
+                  <X className="w-6 h-6" />
+                ) : (
+                  <Menu className="w-6 h-6" />
+                )}
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Mobile Menu */}
+        {/* Mobile Menu - Minimal */}
         {mobileMenuOpen && (
-          <div className="px-4 pb-4 space-y-2 border-t border-slate-200 dark:border-gray-700">
+          <div className="px-4 pb-4 space-y-1 border-t border-slate-200 dark:border-gray-700">
             {navigation.map((item) => {
               const isActive = pathname === item.href;
               return (
-                <div key={item.name}>
-                  <Link
-                    href={item.href}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={cn(
-                      "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors",
-                      isActive
-                        ? "bg-gradient-to-r from-emerald-600 to-blue-600 text-white"
-                        : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-gray-700"
-                    )}
-                  >
-                    <item.icon className="w-5 h-5" />
-                    <span className="font-medium">{item.name}</span>
-                  </Link>
-                  {/* Trial Status & Usage Indicator - chỉ hiển thị dưới Dashboard */}
-                  {item.name === "Dashboard" && (
-                    <div className="px-4 py-2 space-y-1">
-                      {/* Trial Status */}
-                      {trialStatus && !isPremium && (
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                          {trialStatus.isActive && trialStatus.daysLeft !== null ? (
-                            <>
-                              Trial: <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                                {trialStatus.daysLeft} {trialStatus.daysLeft === 1 ? "day" : "days"} left
-                              </span>
-                            </>
-                          ) : (
-                            <>
-                              Plan: <span className="font-semibold text-slate-700 dark:text-slate-300">Free</span>
-                            </>
-                          )}
-                        </p>
-                      )}
-                      {/* Usage Indicator - chỉ hiển thị khi không phải Premium */}
-                      {!isPremium && (
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                          Usage: <span className={cn(
-                            "font-semibold",
-                            currentProfileCount >= MAX_FREE_PROFILES 
-                              ? "text-red-600 dark:text-red-400" 
-                              : "text-slate-700 dark:text-slate-300"
-                          )}>
-                            {currentProfileCount}/{MAX_FREE_PROFILES} profiles
-                          </span>
-                        </p>
-                      )}
-                    </div>
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors",
+                    isActive
+                      ? "bg-gradient-to-r from-emerald-600 to-blue-600 text-white"
+                      : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-gray-700"
                   )}
-                </div>
+                >
+                  <item.icon className="w-5 h-5" />
+                  <span className="font-medium text-sm">{item.name}</span>
+                </Link>
               );
             })}
             {isAdmin && (
@@ -184,14 +144,14 @@ export function Header({ userEmail, isPremium, isAdmin, currentProfileCount = 0,
                 href="/admin"
                 onClick={() => setMobileMenuOpen(false)}
                 className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors",
+                  "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors",
                   pathname === "/admin"
                     ? "bg-gradient-to-r from-red-500 to-orange-500 text-white"
                     : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-gray-700"
                 )}
               >
                 <Shield className="w-5 h-5" />
-                <span className="font-medium">Admin</span>
+                <span className="font-medium text-sm">Admin</span>
               </Link>
             )}
           </div>

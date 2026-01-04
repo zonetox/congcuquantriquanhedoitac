@@ -76,15 +76,14 @@ export async function analyzePostWithAI(
     });
 
     // 🔍 DATA INTEGRITY: Lấy locale của user để đảm bảo reason bằng đúng ngôn ngữ
+    // Luôn lấy locale từ user hiện tại (getUserLocale tự động lấy từ auth context)
     let userLocale = "vi"; // Default: tiếng Việt
-    if (userId) {
-      try {
-        userLocale = await getUserLocale();
-      } catch (localeError) {
-        // Nếu không lấy được locale, dùng default
-        if (process.env.NODE_ENV === "development") {
-          console.warn("[analyzePostWithAI] Failed to get user locale, using default 'vi'");
-        }
+    try {
+      userLocale = await getUserLocale();
+    } catch (localeError) {
+      // Nếu không lấy được locale, dùng default
+      if (process.env.NODE_ENV === "development") {
+        console.warn("[analyzePostWithAI] Failed to get user locale, using default 'vi'");
       }
     }
 
