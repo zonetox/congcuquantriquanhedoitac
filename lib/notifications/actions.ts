@@ -322,7 +322,10 @@ export async function checkAndNotify(): Promise<{
   let notificationsSent = 0;
   const errors: string[] = [];
 
-  for (const [chatId, opportunities] of opportunitiesByChatId.entries()) {
+  // Convert Map to Array để tương thích với TypeScript config
+  const chatIdEntries = Array.from(opportunitiesByChatId.entries());
+  
+  for (const [chatId, opportunities] of chatIdEntries) {
     try {
       // Format batched message
       const batchedMessage = formatBatchedSalesOpportunityMessage(opportunities);
